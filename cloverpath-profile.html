@@ -1051,17 +1051,6 @@
  <a href="https://www.clover-path.com/contact" class="nav-link">Contact</a>
  </nav>
 
- <div class="profile-dropdown" data-ms-modal="profile">
- <div class="profile-info">
- <div class="profile-name">
- <span data-ms-member="first-name">First</span> <span data-ms-member="last-name">Last</span>
- </div>
- <div class="profile-email" data-ms-member="email"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="07626a666e6b47626a666e6b2964686a">[email&#160;protected]</a></div>
- </div>
- <span class="profile-arrow">▼</span>
- </div>
- </div>
-
  
  <div class="overlay" id="overlay"></div>
 
@@ -1580,10 +1569,35 @@
  // ========== SUPABASE INTEGRATION ==========
  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNsaHVwbGhhZWpuZWVjYnlocGhoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA2Mzc5OTksImV4cCI6MjA3NjIxMzk5OX0.ropRR6Izmcy1sRV5v9HDDvBTlCTTGnJcLUvdSyYloBI';
 
- // Function to get student email from Memberstack
- async function getStudentEmail() {
- console.log('=== Getting Email ===');
+  // Function to get student email from Supabase
+async function getStudentEmail() {
+ console.log('=== Getting Email from Supabase ===');
  
+ try {
+ const { data: { user }, error } = await supabase.auth.getUser();
+ 
+ if (error || !user) {
+ console.log('✗ Not logged in');
+ return null;
+ }
+ 
+ // Get email from Supabase profile
+ const { data: profile } = await supabase
+ .from('profiles')
+ .select('email')
+ .eq('id', user.id)
+ .single();
+ 
+ const email = profile?.email || user.email;
+ console.log('✓ Email from Supabase:', email);
+ return email;
+ 
+ } catch (error) {
+ console.error('✗ Error:', error);
+ return null;
+ }
+}
+  
  // Method 1:From page attribute
  const emailElement = document.querySelector('[data-ms-member="email"]');
  if (emailElement && emailElement.textContent) {
@@ -1750,10 +1764,14 @@
  const modal = document.getElementById('fbModal');
  modal.classList.add('active');
  // Prefill
- const emailEl = document.querySelector('[data-ms-member="email"]');
- if (emailEl && emailEl.textContent && !emailEl.textContent.includes('protected')) {
- document.getElementById('fbEmail').value = emailEl.textContent.trim();
+// Prefill email from Supabase
+async function prefillEmail() {
+ const email = await getStudentEmail();
+ if (email) {
+ document.getElementById('fbEmail').value = email;
  }
+}
+prefillEmail();
  }
 
  function closeFB() {

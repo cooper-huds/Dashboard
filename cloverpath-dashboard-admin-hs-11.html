@@ -1,0 +1,2016 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CloverPath HS Admin Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Oswald:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --cp-green: #008208;
+      --cp-green-light: #7bbc00;
+      --cp-forest: #0f3d1e;
+      --cp-cream: #f7f5f0;
+      --cp-ink: #16211a;
+      --cp-muted: #5f6b62;
+      --cp-line: #e4e0d6;
+      --cp-card: #ffffff;
+      --cp-green-tint: #eef5ee;
+      --cp-amber: #b7791f;
+      --cp-amber-tint: #fbf3e3;
+      --cp-red: #b4453a;
+      --cp-red-tint: #fbeeec;
+      --cp-slate: #3a4a55;
+      --cp-slate-tint: #eef1f4;
+    }
+    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: var(--cp-cream); color: var(--cp-ink); -webkit-font-smoothing: antialiased; }
+    html, body { height: 100%; min-height: 100%; margin: 0; padding: 0; background: var(--cp-cream); }
+
+    /* ---------- Topbar ---------- */
+    .topbar { position: fixed; top: 0; left: 0; right: 0; height: 64px; background: #fff; border-bottom: 1px solid #e4e0d6; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; z-index: 1000; }
+    .topbar-left { display: flex; align-items: center; gap: 16px; }
+    .mobile-menu-btn { display: none; background: none; border: none; cursor: pointer; padding: 8px; border-radius: 6px; }
+    .mobile-menu-btn:hover { background: #faf8f3; }
+    .mobile-menu-btn svg { width: 24px; height: 24px; stroke: #5f6b62; fill: none; stroke-width: 2; }
+    .topbar-logo { height: 36px; }
+    .admin-badge { font-size: 10px; font-weight: 700; padding: 4px 8px; border-radius: 4px; background: linear-gradient(135deg, #008208, #00a00a); color: #fff; text-transform: uppercase; letter-spacing: 0.5px; }
+    .topbar-center { display: flex; align-items: center; gap: 8px; }
+    .global-search { position: relative; width: 320px; }
+    .global-search input { width: 100%; padding: 10px 14px 10px 40px; border: 1px solid #e4e0d6; border-radius: 8px; font-size: 14px; background: #faf8f3; font-family: inherit; }
+    .global-search input:focus { outline: none; border-color: #008208; background: #fff; box-shadow: 0 0 0 3px rgba(0,130,8,0.1); }
+    .global-search svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 18px; height: 18px; stroke: #8a948e; fill: none; stroke-width: 2; }
+    .search-results { position: absolute; top: calc(100% + 6px); left: 0; right: 0; background: #fff; border: 1px solid #e4e0d6; border-radius: 10px; box-shadow: 0 8px 24px rgba(15,61,30,0.1); padding: 6px; display: none; z-index: 1100; max-height: 320px; overflow-y: auto; }
+    .search-results.open { display: block; }
+    .search-result-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 6px; cursor: pointer; font-size: 14px; }
+    .search-result-item:hover { background: #faf8f3; }
+    .search-result-avatar { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, #008208, #00a00a); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 11px; flex-shrink: 0; }
+    .search-result-meta { font-size: 12px; color: #5f6b62; }
+    .search-result-empty { padding: 14px 12px; font-size: 13px; color: #8a948e; text-align: center; }
+    .topbar-right { display: flex; align-items: center; gap: 8px; }
+    .mobile-search-btn { display: none; background: none; border: none; cursor: pointer; padding: 8px; border-radius: 6px; }
+    .mobile-search-btn:hover { background: #faf8f3; }
+    .mobile-search-btn svg { width: 20px; height: 20px; stroke: #5f6b62; fill: none; stroke-width: 2; }
+    .mobile-search-bar { display: none; position: fixed; top: 64px; left: 0; right: 0; background: #fff; border-bottom: 1px solid #e4e0d6; padding: 10px 16px; z-index: 1001; }
+    .mobile-search-bar.open { display: block; }
+    .mobile-search-bar .global-search { display: block; width: 100%; }
+    .profile-dropdown { display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 6px 10px; border-radius: 8px; border: 1px solid transparent; position: relative; }
+    .profile-dropdown:hover { background: #faf8f3; border-color: #e4e0d6; }
+    .profile-avatar { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #008208, #00a00a); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; }
+    .profile-info { display: flex; flex-direction: column; }
+    .profile-name { font-size: 14px; color: #16211a; font-weight: 600; }
+    .profile-role { font-size: 12px; color: #5f6b62; }
+
+    /* ---------- Layout / Sidebar ---------- */
+    .layout { display: flex; padding-top: 64px; min-height: calc(100% - 64px); background: var(--cp-cream); }
+    .sidebar { position: fixed; left: 0; top: 64px; width: 240px; height: calc(100vh - 64px); background: #fff; border-right: 1px solid #e4e0d6; overflow-y: auto; padding: 20px 0; transition: transform 0.3s ease; display: flex; flex-direction: column; }
+    .nav-section { padding: 0 12px; }
+    .nav-section.nav-footer { margin-top: auto; padding-top: 12px; border-top: 1px solid #f1eee6; }
+    .nav-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px; cursor: pointer; color: #5f6b62; font-size: 14px; font-weight: 500; position: relative; }
+    .nav-item:hover { background: #faf8f3; color: #16211a; }
+    .nav-item.active { background: #eef5ee; color: #008208; font-weight: 600; }
+    .nav-item.active::before { content: ""; position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 3px; height: 24px; background: #008208; border-radius: 0 3px 3px 0; }
+    .nav-item svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2; flex-shrink: 0; }
+    .nav-badge { margin-left: auto; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px; background: #eef1f4; color: #3a4a55; }
+    .sidebar-overlay { display: none; }
+
+    /* ---------- Main / Views ---------- */
+    .main-content { flex: 1; margin-left: 240px; padding: 24px; min-height: calc(100vh - 64px); overflow-x: clip; }
+    .view { display: none; }
+    .view.active { display: block; }
+    /* Ultra-wide: cap and center content so cards do not stretch */
+    .view { max-width: 1560px; margin: 0 auto; }
+    .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 16px; }
+    .page-header-left h1 { font-size: 24px; font-weight: 700; color: #16211a; font-family: "Oswald", sans-serif; }
+    .page-header-left p { font-size: 14px; color: #5f6b62; margin-top: 4px; }
+    .page-actions { display: flex; gap: 10px; }
+
+    /* ---------- Buttons ---------- */
+    .btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; font-family: inherit; transition: all 0.15s; }
+    .btn svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2; }
+    .btn-primary { background: linear-gradient(135deg, #008208, #00a00a); color: #fff; }
+    .btn-primary:hover { background: linear-gradient(135deg, #006b07, #008208); box-shadow: 0 4px 12px rgba(0,130,8,0.3); }
+    .btn-secondary { background: #fff; color: #16211a; border: 1px solid #c4c0b2; }
+    .btn-secondary:hover { background: #faf8f3; border-color: #8a948e; }
+
+    /* ---------- Stat cards ---------- */
+    .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+    .stat-card { background: #fff; border-radius: 12px; padding: 20px; border: 1px solid #e4e0d6; }
+    .stat-card:hover { border-color: #c4c0b2; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    .stat-card.clickable { cursor: pointer; }
+    .stat-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    .stat-card-label { font-size: 13px; font-weight: 600; color: #5f6b62; }
+    .stat-card-icon { width: 36px; height: 36px; border-radius: 9px; display: flex; align-items: center; justify-content: center; }
+    .stat-card-icon svg { width: 18px; height: 18px; fill: none; stroke-width: 2; }
+    .stat-card-value { font-family: "Oswald", sans-serif; font-size: 30px; font-weight: 600; color: #16211a; line-height: 1; }
+    .stat-card-sub { font-size: 12px; color: #8a948e; margin-top: 8px; }
+    .stat-card-sub strong { color: #008208; }
+
+    /* ---------- Cards / Charts ---------- */
+    .card { background: #fff; border-radius: 12px; border: 1px solid #e4e0d6; margin-bottom: 24px; }
+    .card-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; border-bottom: 1px solid #faf8f3; gap: 12px; flex-wrap: wrap; }
+    .card-title { font-size: 16px; font-weight: 700; color: #16211a; }
+    .card-sub { font-size: 13px; color: #5f6b62; }
+    .card-body { padding: 24px; }
+    .card-body.no-padding { padding: 0; }
+    .chart-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin-bottom: 24px; }
+    .chart-grid > * { min-width: 0; }
+    .chart-grid .card { margin-bottom: 0; }
+    .chart-container { height: 280px; position: relative; overflow: hidden; }
+    .chart-container canvas { max-width: 100% !important; max-height: 100% !important; }
+
+    /* ---------- Tables ---------- */
+    .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    table { width: 100%; border-collapse: collapse; }
+    /* Wide minimum only for the five-column students roster; the
+       side-by-side majors and schools tables must shrink freely */
+    #view-students .table-wrapper table { min-width: 620px; }
+    #view-majors td, #view-majors th { padding-left: 16px; padding-right: 16px; }
+    th { text-align: left; padding: 12px 24px; font-size: 12px; font-weight: 700; color: #5f6b62; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #e4e0d6; white-space: nowrap; }
+    th.sortable { cursor: pointer; user-select: none; }
+    th.sortable:hover { color: #008208; }
+    td { padding: 14px 24px; font-size: 14px; border-bottom: 1px solid #faf8f3; vertical-align: middle; }
+    tr.clickable-row { cursor: pointer; }
+    tr.clickable-row:hover td { background: #faf8f3; }
+    .student-cell { display: flex; align-items: center; gap: 12px; }
+    .student-cell-avatar { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #008208, #00a00a); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; flex-shrink: 0; }
+    .student-cell-name { font-weight: 600; color: #16211a; }
+    .student-cell-email { font-size: 12px; color: #8a948e; }
+
+    /* ---------- Badges ---------- */
+    .badge { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+    .badge.excellent { background: #eef5ee; color: #008208; }
+    .badge.good { background: #eef1f4; color: #3a4a55; }
+    .badge.fair { background: #fbf3e3; color: #b7791f; }
+    .badge.needs-work { background: #fbeeec; color: #b4453a; }
+    .badge.neutral { background: #faf8f3; color: #5f6b62; }
+    .field-tag { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; background: #eef5ee; color: #0f3d1e; white-space: nowrap; }
+
+    /* ---------- Journey mini bar (students table) ---------- */
+    .journey-cell { display: flex; align-items: center; gap: 10px; min-width: 160px; }
+    .journey-track { flex: 1; height: 8px; background: #f1eee6; border-radius: 4px; overflow: hidden; }
+    .journey-fill { height: 100%; background: linear-gradient(90deg, #008208, #7bbc00); border-radius: 4px; }
+    .journey-count { font-size: 12px; font-weight: 700; color: #16211a; font-family: "Oswald", sans-serif; white-space: nowrap; }
+
+    /* ---------- Pagination ---------- */
+    .pagination { display: flex; align-items: center; justify-content: space-between; padding: 16px 24px; border-top: 1px solid #faf8f3; flex-wrap: wrap; gap: 10px; }
+    .pagination-info { font-size: 14px; color: #5f6b62; }
+    .pagination-controls { display: flex; gap: 4px; }
+    .pagination-btn { padding: 8px 12px; background: #fff; border: 1px solid #e4e0d6; border-radius: 6px; font-size: 14px; cursor: pointer; font-family: inherit; }
+    .pagination-btn:hover:not(:disabled) { background: #faf8f3; border-color: #c4c0b2; }
+    .pagination-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .pagination-btn.active { background: #008208; color: #fff; border-color: #008208; }
+
+    /* ---------- Filter toolbar ---------- */
+    .filter-toolbar-row { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: #fff; border: 1px solid #e4e0d6; border-radius: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+    .filter-btn-main { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; background: #fff; border: 1px solid #e4e0d6; border-radius: 8px; font-size: 13px; font-weight: 600; color: #16211a; cursor: pointer; font-family: inherit; }
+    .filter-btn-main:hover { border-color: #c4c0b2; background: #faf8f3; }
+    .filter-btn-main svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; }
+    .filter-btn-count { background: #008208; color: #fff; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 10px; min-width: 18px; text-align: center; margin-left: 2px; }
+    .filter-count-text { font-size: 13px; color: #5f6b62; }
+    .filter-count-text strong { color: #16211a; font-family: "Oswald", sans-serif; font-size: 15px; }
+    .filter-clear-link { background: none; border: none; color: #008208; font-weight: 600; font-size: 12px; cursor: pointer; padding: 4px 8px; font-family: inherit; margin-left: auto; }
+    .filter-clear-link:hover { text-decoration: underline; }
+    .filter-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; background: #eef5ee; border: 1px solid #cfe3cf; border-radius: 999px; font-size: 12px; font-weight: 600; color: #0f3d1e; }
+    .filter-chip button { background: none; border: none; cursor: pointer; color: #0f3d1e; font-size: 13px; line-height: 1; padding: 0; font-family: inherit; }
+    .filter-drawer { position: fixed; top: 64px; right: 0; width: 320px; height: calc(100vh - 64px); background: #fff; border-left: 1px solid #e4e0d6; box-shadow: -8px 0 24px rgba(15,61,30,0.08); z-index: 1050; transform: translateX(100%); transition: transform 0.25s ease; display: flex; flex-direction: column; }
+    .filter-drawer.open { transform: translateX(0); }
+    .filter-drawer-head { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px; border-bottom: 1px solid #f1eee6; }
+    .filter-drawer-title { font-size: 16px; font-weight: 700; }
+    .filter-drawer-close { background: none; border: none; cursor: pointer; padding: 6px; border-radius: 6px; }
+    .filter-drawer-close:hover { background: #faf8f3; }
+    .filter-drawer-close svg { width: 18px; height: 18px; stroke: #5f6b62; fill: none; stroke-width: 2; }
+    .filter-drawer-body { flex: 1; overflow-y: auto; padding: 18px 20px; }
+    .filter-group { margin-bottom: 22px; }
+    .filter-group-label { font-size: 12px; font-weight: 700; color: #5f6b62; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+    .filter-option { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; cursor: pointer; font-size: 14px; }
+    .filter-option:hover { background: #faf8f3; }
+    .filter-option input { accent-color: #008208; width: 15px; height: 15px; cursor: pointer; }
+    .filter-drawer-foot { padding: 14px 20px; border-top: 1px solid #f1eee6; display: flex; gap: 10px; }
+    .filter-drawer-foot .btn { flex: 1; justify-content: center; }
+    .drawer-backdrop { position: fixed; inset: 64px 0 0 0; background: rgba(22,33,26,0.25); z-index: 1040; display: none; }
+    .drawer-backdrop.open { display: block; }
+
+    /* ---------- Breadcrumb / Student detail ---------- */
+    .breadcrumb { display: flex; align-items: center; gap: 8px; margin-bottom: 20px; }
+    .breadcrumb-item { background: none; border: none; font-size: 14px; color: #5f6b62; cursor: pointer; padding: 0; font-family: inherit; }
+    .breadcrumb-item:hover { color: #008208; text-decoration: underline; }
+    .breadcrumb-item.active { color: #16211a; font-weight: 600; cursor: default; }
+    .breadcrumb-item.active:hover { text-decoration: none; }
+    .breadcrumb-sep { color: #c4c0b2; }
+    .student-detail-header { display: flex; gap: 24px; padding: 24px; background: linear-gradient(135deg, #eef5ee, #eef5ee); border-radius: 12px; margin-bottom: 24px; align-items: center; }
+    .student-detail-avatar { width: 80px; height: 80px; border-radius: 50%; background: linear-gradient(135deg, #008208, #00a00a); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 700; flex-shrink: 0; }
+    .student-detail-info { flex: 1; }
+    .student-detail-name { font-size: 24px; font-weight: 700; color: #16211a; margin-bottom: 4px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .student-detail-meta { display: flex; gap: 16px; flex-wrap: wrap; }
+    .student-detail-meta span { font-size: 14px; color: #5f6b62; display: flex; align-items: center; gap: 6px; }
+    .student-detail-meta svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; }
+    .detail-grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+    .detail-grid-2 > * { min-width: 0; }
+    .detail-grid-2 .card { margin-bottom: 24px; }
+
+    /* ---------- Assessment snapshot ---------- */
+    .match-row { display: grid; grid-template-columns: 220px 1fr 44px; align-items: center; gap: 14px; padding: 9px 0; }
+    .match-label { font-size: 14px; font-weight: 600; color: #16211a; }
+    .match-track { height: 10px; background: #f1eee6; border-radius: 5px; overflow: hidden; }
+    .match-fill { height: 100%; background: linear-gradient(90deg, #008208, #7bbc00); border-radius: 5px; }
+    .match-value { font-family: "Oswald", sans-serif; font-size: 15px; font-weight: 600; color: #16211a; text-align: right; }
+    .assessment-empty { padding: 20px; background: #faf8f3; border: 1px dashed #d9d4c6; border-radius: 10px; font-size: 14px; color: #5f6b62; text-align: center; }
+
+    /* ---------- Journey stages / milestones ---------- */
+    .stage-block { border: 1px solid #f1eee6; border-radius: 10px; margin-bottom: 14px; overflow: hidden; }
+    .stage-head { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: #faf8f3; }
+    .stage-num { width: 26px; height: 26px; border-radius: 50%; background: #0f3d1e; color: #fff; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-family: "Oswald", sans-serif; }
+    .stage-head.done .stage-num { background: #008208; }
+    .stage-title { font-size: 14px; font-weight: 700; color: #16211a; flex: 1; }
+    .stage-progress { font-size: 12px; font-weight: 600; color: #5f6b62; }
+    .milestone-row { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-top: 1px solid #faf8f3; }
+    .milestone-check { width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+    .milestone-check.done { background: #008208; }
+    .milestone-check.done svg { width: 12px; height: 12px; stroke: #fff; fill: none; stroke-width: 3; }
+    .milestone-check.pending { border: 2px solid #d9d4c6; background: #fff; }
+    .milestone-title { flex: 1; font-size: 13.5px; color: #16211a; }
+    .milestone-row.pending .milestone-title { color: #8a948e; }
+
+    /* ---------- Activity grid ---------- */
+    .activity-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .activity-tile { background: #faf8f3; border: 1px solid #f1eee6; border-radius: 10px; padding: 14px 16px; }
+    .activity-tile-value { font-family: "Oswald", sans-serif; font-size: 24px; font-weight: 600; color: #16211a; }
+    .activity-tile-label { font-size: 12px; color: #5f6b62; margin-top: 3px; display: flex; align-items: center; gap: 5px; }
+    .activity-tile.clickable { cursor: pointer; }
+    .activity-tile.clickable:hover { border-color: #c4c0b2; background: #f4f1e9; }
+    .activity-tile.open { border-color: #008208; background: #eef5ee; }
+    .activity-tile-chev { width: 12px; height: 12px; stroke: #8a948e; fill: none; stroke-width: 2.5; flex-shrink: 0; }
+    .activity-tile.open .activity-tile-chev { transform: rotate(180deg); stroke: #008208; }
+    .activity-detail { margin-top: 14px; padding: 14px 16px; background: #faf8f3; border: 1px solid #f1eee6; border-radius: 10px; }
+    .activity-detail-title { font-size: 12px; font-weight: 700; color: #5f6b62; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+    .activity-detail-quote { background: #fff; border-left: 3px solid #008208; border-radius: 0 8px 8px 0; padding: 10px 14px; font-size: 13.5px; font-style: italic; color: #16211a; line-height: 1.55; margin-bottom: 8px; }
+    .activity-detail-quote:last-child { margin-bottom: 0; }
+
+    /* ---------- Saved items ---------- */
+    .chip-wrap { display: flex; gap: 8px; flex-wrap: wrap; }
+    .chip { display: inline-flex; align-items: center; padding: 6px 12px; background: #eef5ee; border: 1px solid #cfe3cf; border-radius: 999px; font-size: 13px; font-weight: 600; color: #0f3d1e; }
+    .school-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid #faf8f3; }
+    .school-row:last-child { border-bottom: none; }
+    .school-name { font-size: 14px; font-weight: 600; color: #16211a; }
+    .school-loc { font-size: 12px; color: #8a948e; }
+    .saved-empty { font-size: 13px; color: #8a948e; padding: 8px 0; }
+
+    /* ---------- Reflection ---------- */
+    .reflection-quote { background: #faf8f3; border-left: 3px solid #008208; border-radius: 0 10px 10px 0; padding: 16px 18px; font-size: 14px; color: #16211a; line-height: 1.6; font-style: italic; }
+    .reflection-meta { font-size: 12px; color: #8a948e; margin-top: 8px; }
+
+    /* ---------- Advisor guidance ---------- */
+    .guidance-box { display: flex; gap: 14px; align-items: flex-start; background: #eef5ee; border: 1px solid #cfe3cf; border-radius: 10px; padding: 16px 18px; }
+    .guidance-icon { flex: none; width: 38px; height: 38px; border-radius: 10px; background: #008208; display: flex; align-items: center; justify-content: center; }
+    .guidance-icon svg { width: 20px; height: 20px; stroke: #fff; fill: none; stroke-width: 2; }
+    .guidance-title { font-size: 14px; font-weight: 700; color: #0f3d1e; margin-bottom: 4px; }
+    .guidance-text { font-size: 13.5px; color: #16211a; line-height: 1.55; }
+
+    /* ---------- Recently active list ---------- */
+    .attn-row { display: flex; align-items: center; gap: 14px; padding: 12px 0; border-bottom: 1px solid #faf8f3; cursor: pointer; }
+    .attn-row:last-child { border-bottom: none; }
+    .attn-row:hover .student-cell-name { color: #008208; }
+    .attn-reason { margin-left: auto; }
+    .attn-empty { padding: 16px 0; font-size: 14px; color: #8a948e; text-align: center; }
+
+    /* ---------- Field cards ---------- */
+    .field-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .field-card { background: #fff; border: 1px solid #e4e0d6; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+    .field-card:hover { border-color: #c4c0b2; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    .field-card-name { font-size: 15px; font-weight: 700; color: #16211a; min-height: 40px; }
+    .field-card-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .field-card-stat { text-align: center; background: #faf8f3; border-radius: 8px; padding: 10px 4px; }
+    .field-card-stat-value { font-family: "Oswald", sans-serif; font-size: 20px; font-weight: 600; color: #16211a; }
+    .field-card-stat-label { font-size: 10.5px; color: #5f6b62; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.4px; }
+    .field-card-foot { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #faf8f3; padding-top: 12px; }
+    .field-card-foot span { font-size: 12px; color: #5f6b62; }
+    .field-card-btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; background: #fff; border: 1px solid #c4c0b2; border-radius: 8px; font-size: 12.5px; font-weight: 600; color: #16211a; cursor: pointer; font-family: inherit; }
+    .field-card-btn:hover { background: #faf8f3; border-color: #8a948e; }
+    .field-card-btn svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; }
+
+    /* ---------- Report picker ---------- */
+    .report-pick-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .report-pick-card { text-align: left; background: #faf8f3; border: 1px solid #e4e0d6; border-radius: 10px; padding: 14px 16px; cursor: pointer; transition: border-color 0.15s, transform 0.1s, background 0.15s; font-family: inherit; }
+    .report-pick-card:hover { border-color: #008208; background: #fff; transform: translateY(-1px); }
+    .report-pick-tag { display: inline-block; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 3px 8px; border-radius: 4px; margin-bottom: 10px; }
+    .report-pick-tag.external { background: #d8efd9; color: #0f3d1e; }
+    .report-pick-tag.internal { background: #fde9c8; color: #7a4e0d; }
+    .report-pick-title { font-size: 15px; font-weight: 700; color: #16211a; display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .report-pick-title svg { width: 18px; height: 18px; stroke: #008208; fill: none; stroke-width: 2; }
+    .report-pick-desc { font-size: 12px; color: #5f6b62; line-height: 1.5; margin-bottom: 10px; }
+    .report-pick-format { font-size: 11px; color: #8a948e; font-weight: 600; }
+
+    /* ---------- Modal ---------- */
+    .modal-backdrop { position: fixed; inset: 0; background: rgba(22,33,26,0.4); z-index: 1200; display: none; align-items: center; justify-content: center; padding: 20px; }
+    .modal-backdrop.open { display: flex; }
+    .modal { background: #fff; border-radius: 14px; width: 100%; max-width: 560px; max-height: 85vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 50px rgba(15,61,30,0.25); }
+    .modal-head { display: flex; align-items: center; justify-content: space-between; padding: 18px 22px; border-bottom: 1px solid #f1eee6; }
+    .modal-title { font-size: 16px; font-weight: 700; }
+    .modal-close { background: none; border: none; cursor: pointer; padding: 6px; border-radius: 6px; }
+    .modal-close:hover { background: #faf8f3; }
+    .modal-close svg { width: 18px; height: 18px; stroke: #5f6b62; fill: none; stroke-width: 2; }
+    .modal-body { padding: 20px 22px; overflow-y: auto; }
+
+    /* ---------- Contact view ---------- */
+    .contact-card { max-width: 560px; }
+    .contact-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid #faf8f3; font-size: 14px; }
+    .contact-row:last-child { border-bottom: none; }
+    .contact-row svg { width: 18px; height: 18px; stroke: #008208; fill: none; stroke-width: 2; flex-shrink: 0; }
+    .contact-row a { color: #008208; font-weight: 600; text-decoration: none; }
+    .contact-row a:hover { text-decoration: underline; }
+
+    /* ---------- Responsive ---------- */
+    /* Oversized displays: let dense grids use the extra room */
+    @media (min-width: 1700px) {
+      .field-grid { grid-template-columns: repeat(4, 1fr); }
+      .chart-container { height: 320px; }
+    }
+    @media (max-width: 1280px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } .field-grid { grid-template-columns: repeat(2, 1fr); } .activity-grid { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 1024px) {
+      .sidebar { transform: translateX(-100%); z-index: 999; }
+      .sidebar.mobile-open { transform: translateX(0); box-shadow: 4px 0 20px rgba(0,0,0,0.1); }
+      .sidebar-overlay { display: none; position: fixed; inset: 64px 0 0 0; background: rgba(22,33,26,0.25); z-index: 998; }
+      .sidebar-overlay.open { display: block; }
+      .main-content { margin-left: 0; }
+      .mobile-menu-btn { display: block; }
+      .topbar-center .global-search { display: none; }
+      .mobile-search-btn { display: block; }
+      .chart-grid { grid-template-columns: 1fr; }
+      .detail-grid-2 { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 640px) {
+      .main-content { padding: 16px; }
+      .stats-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
+      .field-grid { grid-template-columns: 1fr; }
+      .activity-grid { grid-template-columns: 1fr 1fr; }
+      .student-detail-header { flex-direction: column; text-align: center; padding: 20px 16px; }
+      .student-detail-name { justify-content: center; }
+      .student-detail-meta { justify-content: center; }
+      .match-row { grid-template-columns: 1fr; gap: 6px; }
+      .match-value { text-align: left; }
+      .report-pick-grid { grid-template-columns: 1fr; }
+      .profile-info { display: none; }
+      .filter-drawer { width: 100%; }
+      .chart-container { height: 240px; }
+      .page-actions .btn { padding: 9px 12px; font-size: 13px; }
+    }
+    @media (max-width: 480px) {
+      .main-content { padding: 12px; }
+      .stats-grid { grid-template-columns: 1fr; }
+      .stat-card { padding: 16px; }
+      .card-header { padding: 14px 16px; }
+      .card-body { padding: 16px; }
+      th, td { padding-left: 14px; padding-right: 14px; }
+      .page-header-left h1 { font-size: 20px; }
+      .pagination { justify-content: center; }
+      .pagination-info { width: 100%; text-align: center; }
+      .chart-container { height: 220px; }
+      .activity-grid { gap: 10px; }
+      .detail-grid-2 { gap: 16px; }
+      .topbar { padding: 0 14px; }
+      .topbar-logo { height: 30px; }
+    }
+    @media (max-width: 380px) {
+      .activity-grid { grid-template-columns: 1fr 1fr; }
+      .admin-badge { display: none; }
+      .student-detail-avatar { width: 64px; height: 64px; font-size: 22px; }
+    }
+
+    /* ---------- Auth gate overlay ---------- */
+    .gate-overlay { position: fixed; inset: 0; background: #f7f5f0; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 20px; font-family: 'Inter', sans-serif; }
+    .gate-overlay.hidden { display: none; }
+    .gate-card { max-width: 460px; width: 100%; background: #ffffff; border: 1px solid #e7e1d3; border-radius: 16px; padding: 40px 32px; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.06); }
+    .gate-logo { font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 28px; color: #008208; letter-spacing: 0.02em; margin-bottom: 24px; }
+    .gate-spinner { width: 40px; height: 40px; margin: 0 auto 20px; border: 3px solid #e7e1d3; border-top-color: #008208; border-radius: 50%; animation: gate-spin 0.7s linear infinite; }
+    @keyframes gate-spin { to { transform: rotate(360deg); } }
+    .gate-icon { width: 56px; height: 56px; margin: 0 auto 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+    .gate-icon svg { width: 28px; height: 28px; stroke-width: 2.5; fill: none; stroke: currentColor; }
+    .gate-icon.error { background: #fbeeec; color: #b4453a; }
+    .gate-icon.warn  { background: #fbf3e3; color: #b7791f; }
+    .gate-title { font-size: 20px; font-weight: 700; color: #16211a; margin-bottom: 10px; }
+    .gate-body { font-size: 14px; color: #4a5550; line-height: 1.55; margin-bottom: 8px; }
+    .gate-detail { font-size: 12px; color: #8a948e; margin-top: 16px; font-family: ui-monospace, monospace; }
+    .gate-button { margin-top: 22px; padding: 10px 22px; background: #008208; color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; margin-left: 4px; margin-right: 4px; }
+    .gate-button:hover { background: #006b07; }
+    .gate-button.secondary { background: #fff; color: #4a5550; border: 1px solid #d8d3c5; }
+    .gate-button.secondary:hover { background: #f0ece1; }
+  </style>
+</head>
+<body>
+  <div class="gate-overlay" id="gateOverlay">
+    <div class="gate-card" id="gateCard">
+      <div class="gate-logo">CLOVERPATH</div>
+      <div class="gate-spinner" id="gateSpinner"></div>
+      <div class="gate-title" id="gateTitle">Loading dashboard</div>
+      <div class="gate-body" id="gateBody">Verifying your access and loading your school's data.</div>
+      <div class="gate-detail" id="gateDetail" style="display:none;"></div>
+      <div id="gateActions"></div>
+    </div>
+  </div>
+  <header class="topbar">
+    <div class="topbar-left">
+      <button class="mobile-menu-btn" onclick="toggleMobileMenu()" aria-label="Menu"><svg viewBox="0 0 24 24"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+      <img src="https://cdn.prod.website-files.com/68bf2f9e0722f5e0b402ad4d/691bf346a23098b5a5a4c19b_CloverPath_HorizontalLogo_FullColor.png" alt="CloverPath" class="topbar-logo">
+      <span class="admin-badge">HS Admin</span>
+    </div>
+    <div class="topbar-center">
+      <div class="global-search">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" placeholder="Search students..." id="globalSearch" oninput="handleGlobalSearch()" autocomplete="off">
+        <div class="search-results" id="searchResults"></div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <button class="mobile-search-btn" onclick="toggleMobileSearch()" aria-label="Search students"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></button>
+      <div class="profile-dropdown">
+        <div class="profile-avatar" id="profileAvatar">MW</div>
+        <div class="profile-info"><span class="profile-name" id="profileName">Morgan Wells</span><span class="profile-role" id="profileRole">College and Career Counselor</span></div>
+      </div>
+    </div>
+  </header>
+  <div class="mobile-search-bar" id="mobileSearchBar">
+    <div class="global-search">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" placeholder="Search students..." id="mobileSearch" oninput="handleMobileSearch()" autocomplete="off">
+      <div class="search-results" id="mobileSearchResults"></div>
+    </div>
+  </div>
+
+  <div class="layout">
+    <aside class="sidebar" id="sidebar">
+      <div class="nav-section">
+        <div class="nav-item active" data-view="dashboard" onclick="showView('dashboard')"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>Dashboard</div>
+        <div class="nav-item" data-view="students" onclick="clearAllFilters(); showView('students')"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Students<span class="nav-badge" id="studentCountBadge">0</span></div>
+        <div class="nav-item" data-view="fields" onclick="showView('fields')"><svg viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>Career Fields</div>
+        <div class="nav-item" data-view="majors" onclick="showView('majors')"><svg viewBox="0 0 24 24"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>Majors and Schools</div>
+      </div>
+      <div class="nav-section nav-footer">
+        <div class="nav-item" data-view="reports" onclick="showView('reports')"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Reports</div>
+        <div class="nav-item" data-view="contact" onclick="showView('contact')"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Contact CloverPath</div>
+      </div>
+    </aside>
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleMobileMenu()"></div>
+
+    <main class="main-content">
+
+      <div class="view active" id="view-dashboard">
+        <div class="page-header">
+          <div class="page-header-left"><h1>Dashboard</h1><p>Track career exploration across your school</p></div>
+          <div class="page-actions"><button class="btn btn-secondary" id="refreshBtn" onclick="refreshLiveData()" style="display:none;"><svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>Refresh</button><button class="btn btn-secondary" onclick="showView('reports')"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Reports</button></div>
+        </div>
+        <div class="stats-grid" id="dashboardStats"></div>
+        <div class="chart-grid">
+          <div class="card">
+            <div class="card-header"><div><h3 class="card-title">Top Career Fields</h3><div class="card-sub">Students whose strongest match is this field</div></div></div>
+            <div class="card-body"><div class="chart-container"><canvas id="fieldsChart"></canvas></div></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><div><h3 class="card-title">Journey Stage Distribution</h3><div class="card-sub">Where students are in the five-stage journey</div></div></div>
+            <div class="card-body"><div class="chart-container"><canvas id="stageChart"></canvas></div></div>
+          </div>
+        </div>
+        <div class="chart-grid">
+          <div class="card">
+            <div class="card-header"><div><h3 class="card-title">Weekly Active Students</h3><div class="card-sub">Students with at least one exploration action per week</div></div></div>
+            <div class="card-body"><div class="chart-container"><canvas id="weeklyChart"></canvas></div></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><div><h3 class="card-title">Recently Active</h3><div class="card-sub">Latest student activity on the platform</div></div><button class="btn btn-secondary" onclick="clearAllFilters(); showView('students')">View All</button></div>
+            <div class="card-body" id="recentActiveList"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="view" id="view-students">
+        <div class="page-header">
+          <div class="page-header-left"><h1>All Students</h1><p>Track each student's exploration journey</p></div>
+          <div class="page-actions"><button class="btn btn-secondary" onclick="showView('reports')"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export</button></div>
+        </div>
+        <div class="filter-toolbar-row" id="filterToolbarRow"></div>
+        <div class="card">
+          <div class="card-body no-padding">
+            <div class="table-wrapper">
+              <table>
+                <thead><tr>
+                  <th class="sortable" onclick="sortTable('name')">Student</th>
+                  <th class="sortable" onclick="sortTable('grade')">Grade</th>
+                  <th class="sortable" onclick="sortTable('topField')">Top Field</th>
+                  <th class="sortable" onclick="sortTable('milestones')">Journey Progress</th>
+                  <th class="sortable" onclick="sortTable('lastActive')">Last Active</th>
+                </tr></thead>
+                <tbody id="studentsTableBody"></tbody>
+              </table>
+            </div>
+            <div class="pagination">
+              <div class="pagination-info" id="paginationInfo"></div>
+              <div class="pagination-controls" id="paginationControls"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="view" id="view-student-detail">
+        <div class="breadcrumb">
+          <button class="breadcrumb-item" onclick="showView('students')">All Students</button>
+          <span class="breadcrumb-sep">&rsaquo;</span>
+          <span class="breadcrumb-item active" id="studentDetailName">Student Name</span>
+        </div>
+        <div class="student-detail-header" id="studentDetailHeader"></div>
+        <div class="card">
+          <div class="card-header"><div><h3 class="card-title">Assessment Snapshot</h3><div class="card-sub" id="assessmentSub"></div></div></div>
+          <div class="card-body" id="assessmentSnapshot"></div>
+        </div>
+        <div class="detail-grid-2">
+          <div class="card">
+            <div class="card-header"><div><h3 class="card-title">Journey Progress</h3><div class="card-sub" id="journeySub"></div></div></div>
+            <div class="card-body" id="journeyProgress"></div>
+          </div>
+          <div>
+            <div class="card">
+              <div class="card-header"><h3 class="card-title">Advisor Guidance</h3></div>
+              <div class="card-body" id="advisorGuidance"></div>
+            </div>
+            <div class="card">
+              <div class="card-header"><div><h3 class="card-title">Exploration Activity</h3><div class="card-sub">Tap a tile to see the details behind the number</div></div></div>
+              <div class="card-body"><div class="activity-grid" id="explorationActivity"></div><div class="activity-detail" id="activityDetail" style="display:none;"></div></div>
+            </div>
+            <div class="card">
+              <div class="card-header"><h3 class="card-title">Student Reflection</h3></div>
+              <div class="card-body" id="studentReflection"></div>
+            </div>
+          </div>
+        </div>
+        <div class="detail-grid-2">
+          <div class="card">
+            <div class="card-header"><h3 class="card-title">Saved Majors</h3></div>
+            <div class="card-body" id="savedMajors"></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><h3 class="card-title">Saved Schools</h3></div>
+            <div class="card-body" id="savedSchools"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="view" id="view-fields">
+        <div class="page-header">
+          <div class="page-header-left"><h1>Career Fields</h1><p>How your students match across the twelve career fields</p></div>
+        </div>
+        <div class="field-grid" id="fieldGrid"></div>
+      </div>
+
+      <div class="view" id="view-majors">
+        <div class="page-header">
+          <div class="page-header-left"><h1>Majors and Schools</h1><p>What students are exploring and saving</p></div>
+        </div>
+        <div class="detail-grid-2">
+          <div class="card">
+            <div class="card-header"><div><h3 class="card-title">Most Saved Majors</h3><div class="card-sub">Across all students with assessment results</div></div></div>
+            <div class="card-body no-padding">
+              <div class="table-wrapper">
+                <table>
+                  <thead><tr><th>Major</th><th>Field</th><th>Saves</th><th></th></tr></thead>
+                  <tbody id="majorsTableBody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><div><h3 class="card-title">Most Saved Schools</h3><div class="card-sub">Schools on student shortlists</div></div></div>
+            <div class="card-body no-padding">
+              <div class="table-wrapper">
+                <table>
+                  <thead><tr><th>School</th><th>Location</th><th>Saves</th></tr></thead>
+                  <tbody id="schoolsTableBody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="view" id="view-reports">
+        <div class="page-header">
+          <div class="page-header-left"><h1>Reports</h1><p>Generate summaries for your team or school administration</p></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div><h3 class="card-title">Choose a report</h3><div class="card-sub">External reports redact student names and are safe to share outside counseling. Internal reports include names and stay within your team.</div></div></div>
+          <div class="card-body">
+            <div class="report-pick-grid">
+              <button class="report-pick-card" onclick="generateReport('program')">
+                <span class="report-pick-tag external">External</span>
+                <div class="report-pick-title"><svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Program Summary</div>
+                <div class="report-pick-desc">Cohort-level participation, assessment completion, and journey progress. No student names.</div>
+                <div class="report-pick-format">Print or save as PDF</div>
+              </button>
+              <button class="report-pick-card" onclick="generateReport('fields')">
+                <span class="report-pick-tag external">External</span>
+                <div class="report-pick-title"><svg viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>Field Interest Report</div>
+                <div class="report-pick-desc">Which career fields your students match and explore most. Useful for curriculum and event planning.</div>
+                <div class="report-pick-format">Print or save as PDF</div>
+              </button>
+              <button class="report-pick-card internal" onclick="generateReport('roster')">
+                <span class="report-pick-tag internal">Internal</span>
+                <div class="report-pick-title"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Student Roster</div>
+                <div class="report-pick-desc">Every student with grade, top field, milestone progress, and last active date. Includes names.</div>
+                <div class="report-pick-format">Print or save as PDF</div>
+              </button>
+
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="view" id="view-contact">
+        <div class="page-header">
+          <div class="page-header-left"><h1>Contact CloverPath</h1><p>We are here to help your counseling team</p></div>
+        </div>
+        <div class="card contact-card">
+          <div class="card-body">
+            <div class="contact-row"><svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg><span>Email us at <a href="mailto:support@clover-path.com">support@clover-path.com</a></span></div>
+            <div class="contact-row"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span>We respond within one business day</span></div>
+            <div class="contact-row"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span>Questions about student data or reports are always welcome</span></div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <div class="drawer-backdrop" id="drawerBackdrop" onclick="closeFilterDrawer()"></div>
+  <aside class="filter-drawer" id="filterDrawer">
+    <div class="filter-drawer-head">
+      <div class="filter-drawer-title">Filter Students</div>
+      <button class="filter-drawer-close" onclick="closeFilterDrawer()" aria-label="Close filters"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="filter-drawer-body" id="filterDrawerBody"></div>
+    <div class="filter-drawer-foot">
+      <button class="btn btn-secondary" onclick="clearAllFilters(); renderFilterDrawer(); renderStudents();">Clear</button>
+      <button class="btn btn-primary" onclick="closeFilterDrawer()">Done</button>
+    </div>
+  </aside>
+  <script>
+    // ============================================================
+    // CLOVERPATH HS ADMIN DASHBOARD
+    //
+    // LIVE=false renders seeded demo data end to end.
+    // LIVE=true hydrates from the real hs_sessions table through the
+    // v2 admin RPC described below, then renders the same UI.
+    //
+    // REAL DATA MODEL (hs_sessions, confirmed Aug 2026 diagnostics):
+    //   id uuid, student_id uuid (unused, always null),
+    //   student_email text, organization_id (empty until v2
+    //   migration), completed bool, created_at, updated_at,
+    //   completed_at, p1_completed bool, p1_answers jsonb,
+    //   p2_answers jsonb, surfaced_clusters jsonb (short cluster ids
+    //   like eng_tech, cs_data, biz), clusters_viewed,
+    //   clusters_saved, majors_viewed (title strings), majors_saved,
+    //   schools_saved (name strings), comparisons_made (jsonb arrays)
+    //
+    // KNOWN GAPS in server data (client localStorage only for now):
+    //   student name, grade, organization_id, careers_viewed,
+    //   videos_watched, reflections, whoiam/school_search flags,
+    //   XP ledger (student-side gamification, not shown here). Until
+    //   the student dashboard syncs these, live mode
+    //   derives 6 of 11 milestones from server columns and shows the
+    //   rest as pending; name falls back to the email local part and
+    //   grade shows as Not set.
+    //
+    // REQUIRED BACKEND (v1 get_hs_* RPCs are revoked; do not re-grant):
+    //   create function get_hs_admin_sessions() returns setof jsonb
+    //   SECURITY DEFINER, deriving org scope from the caller JWT via
+    //   auth_caller_org_id() + admin/counselor check, EXECUTE granted
+    //   to authenticated only. Until hs_sessions carries an
+    //   organization_id, this RPC cannot scope by school and MUST NOT
+    //   ship. See the diagnostic SQL delivered with this file.
+    //
+    // Auth session arrives per platform convention: the gating script
+    // sets window.cpSupabase at DOMContentLoaded, so live mode polls
+    // for it instead of capturing at parse time.
+    // ============================================================
+    var LIVE = true;
+    var SUPABASE_URL = 'https://clhuplhaejneecbyhphh.supabase.co';
+    var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNsaHVwbGhhZWpuZWVjYnlocGhoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA2Mzc5OTksImV4cCI6MjA3NjIxMzk5OX0.ropRR6Izmcy1sRV5v9HDDvBTlCTTGnJcLUvdSyYloBI';
+    var HS_ADMIN_RPC = 'get_hs_admin_sessions';
+    var HS_CONTENT_URLS = [
+      'https://clhuplhaejneecbyhphh.supabase.co/functions/v1/hs-content',
+      'https://clhuplhaejneecbyhphh.supabase.co/functions/v1/hs-content-2',
+      'https://clhuplhaejneecbyhphh.supabase.co/functions/v1/hs-content-3'
+    ];
+
+    // ---------- Canonical vocab (mirrors HS student dashboard) ----------
+    // Titles mirror the hs-content catalog (twelve fields, July 2026).
+    // In live mode hydrateFromLive() rebuilds this array from the
+    // hs-content Edge Functions so ids match real surfaced_clusters.
+    var FIELDS = [
+      { id: 'engineering',   title: 'Engineering & Technology' },
+      { id: 'computing',     title: 'Computing & Data' },
+      { id: 'trades',        title: 'Skilled Trades & Applied Tech' },
+      { id: 'science',       title: 'Science & Research' },
+      { id: 'business',      title: 'Business & Money' },
+      { id: 'media',         title: 'Communication, Media & Design' },
+      { id: 'arts',          title: 'Arts & Performance' },
+      { id: 'health',        title: 'Health & Helping Professions' },
+      { id: 'education',     title: 'Education & Coaching' },
+      { id: 'law',           title: 'Law, Policy & Public Service' },
+      { id: 'society',       title: 'People, Culture & Society' },
+      { id: 'environment',   title: 'Environment & Outdoors' }
+    ];
+
+    var STAGES = [
+      { id: 'know',    num: 1, title: 'Know Yourself' },
+      { id: 'explore', num: 2, title: 'Explore Your Matches' },
+      { id: 'narrow',  num: 3, title: 'Narrow It Down' },
+      { id: 'schools', num: 4, title: 'Find Your Schools' },
+      { id: 'work',    num: 5, title: 'See the Work' }
+    ];
+
+    // Eleven milestones. Ids, stages, and titles mirror the student
+    // dashboard exactly so admin and student views never disagree
+    // about what a milestone is. XP values exist only on the student
+    // side; the admin view deliberately shows no gamification.
+    var MILESTONES = [
+      { id: 'assessment',      stage: 'know', title: 'Complete the aptitude assessment' },
+      { id: 'whoiam',          stage: 'know', title: 'Read your Who I Am profile' },
+      { id: 'fields_all',      stage: 'explore', title: 'Explore every field you matched' },
+      { id: 'majors_depth',    stage: 'explore', title: 'Look inside real majors' },
+      { id: 'careers',         stage: 'explore', title: 'Meet the careers behind them' },
+      { id: 'compare',         stage: 'narrow', title: 'Put two fields head to head' },
+      { id: 'reflection',      stage: 'narrow', title: 'Write a reflection in your own words' },
+      { id: 'major_shortlist', stage: 'narrow', title: 'Build your major shortlist' },
+      { id: 'school_search',   stage: 'schools', title: 'Search real schools' },
+      { id: 'school_shortlist',stage: 'schools', title: 'Save three schools' },
+      { id: 'day_in_life',     stage: 'work', title: 'Watch a day in the life' }
+    ];
+
+    // Grade to class year for the 2026-27 school year
+    var GRADE_CLASS_YEAR = { 9: 2030, 10: 2029, 11: 2028, 12: 2027 };
+
+    // Demo majors per field (drawn from the live 54-major CMS set)
+    var FIELD_MAJORS = {
+      engineering: ['Mechanical Engineering', 'Civil Engineering', 'Electrical Engineering'],
+      computing:   ['Computer Science', 'Data Science', 'Cybersecurity'],
+      trades:      ['Construction Management', 'Automotive Technology', 'Welding Technology'],
+      science:     ['Biology', 'Chemistry', 'Physics'],
+      business:    ['Business Administration', 'Finance', 'Marketing'],
+      media:       ['Graphic Design', 'Communications', 'Journalism'],
+      arts:        ['Music Performance', 'Theatre', 'Studio Art'],
+      health:      ['Nursing', 'Kinesiology', 'Public Health'],
+      education:   ['Elementary Education', 'Special Education', 'Sports Coaching'],
+      law:         ['Criminal Justice', 'Political Science', 'Pre-Law Studies'],
+      society:     ['Psychology', 'Sociology', 'Anthropology'],
+      environment: ['Environmental Science', 'Wildlife Biology', 'Forestry']
+    };
+
+    var DEMO_SCHOOLS = [
+      { name: 'University of Memphis', city: 'Memphis', state: 'TN' },
+      { name: 'University of Tennessee', city: 'Knoxville', state: 'TN' },
+      { name: 'Middle Tennessee State University', city: 'Murfreesboro', state: 'TN' },
+      { name: 'Mississippi State University', city: 'Starkville', state: 'MS' },
+      { name: 'University of Arkansas', city: 'Fayetteville', state: 'AR' },
+      { name: 'Rhodes College', city: 'Memphis', state: 'TN' },
+      { name: 'Christian Brothers University', city: 'Memphis', state: 'TN' },
+      { name: 'Auburn University', city: 'Auburn', state: 'AL' },
+      { name: 'Tennessee Tech University', city: 'Cookeville', state: 'TN' },
+      { name: 'University of Alabama', city: 'Tuscaloosa', state: 'AL' }
+    ];
+
+    var DEMO_REFLECTIONS = [
+      'I always thought I had to pick between building things and helping people, but engineering for medical devices could be both. I want to look at biomedical programs next.',
+      'Comparing business and computing helped a lot. I like the tech side more than I expected, especially the data stuff. I still want a job where I talk to people though.',
+      'Health careers match what I already do taking care of my grandma. Nursing feels real to me now, not just something adults suggest.',
+      'I saved three schools with good music programs. I did not know you could major in music production without being a performer.',
+      'The outdoors field surprised me. I thought it was just park ranger jobs but wildlife biology has actual science in it.',
+      'I compared law and education. I care about fairness either way, but I think I would rather work with kids than in a courtroom.'
+    ];
+
+    var DEMO_CAREERS_WATCHED = [
+      'Registered Nurse', 'Software Developer', 'Mechanical Engineer', 'Electrician',
+      'Graphic Designer', 'Physical Therapist', 'Data Analyst', 'Veterinary Technician',
+      'Police Patrol Officer', 'Chef', 'Civil Engineer', 'Teacher'
+    ];
+
+    // ---------- Seeded RNG so the demo is stable across reloads ----------
+    function mulberry32(seed) {
+      return function () {
+        seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+        var t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+        t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+        return ((t ^ t >>> 14) >>> 0) / 4294967296;
+      };
+    }
+    var rng = mulberry32(20260811);
+    function ri(min, max) { return min + Math.floor(rng() * (max - min + 1)); }
+    function pick(arr) { return arr[Math.floor(rng() * arr.length)]; }
+    function pickN(arr, n) {
+      var copy = arr.slice(), out = [];
+      while (out.length < n && copy.length) out.push(copy.splice(Math.floor(rng() * copy.length), 1)[0]);
+      return out;
+    }
+
+    // ---------- Demo student generation ----------
+    var FIRST_NAMES = ['Ava', 'Liam', 'Maya', 'Noah', 'Zoe', 'Ethan', 'Aaliyah', 'Mason', 'Sofia', 'Jayden', 'Harper', 'Elijah', 'Camila', 'Logan', 'Nia', 'Carter', 'Isabella', 'Xavier', 'Ruby', 'Diego', 'Amara', 'Owen', 'Layla', 'Marcus', 'Elena', 'Tyler', 'Jasmine', 'Andre', 'Grace', 'Malik', 'Lily', 'Devon'];
+    var LAST_NAMES = ['Johnson', 'Nguyen', 'Williams', 'Garcia', 'Robinson', 'Patel', 'Thompson', 'Martinez', 'Brooks', 'Kim', 'Anderson', 'Rivera', 'Coleman', 'Chen', 'Jackson', 'Torres', 'Bailey', 'Washington', 'Flores', 'Price', 'Simmons', 'Reed', 'Morgan', 'Bell', 'Ford', 'Hayes', 'Bryant', 'Ellis', 'Perry', 'Watts', 'Greer', 'Sanders'];
+
+    // Milestone completion order used to synthesize plausible journeys.
+    // Students progress roughly in this order with occasional skips,
+    // matching how the real student dashboard funnels behavior.
+    var MILESTONE_ORDER = ['assessment', 'whoiam', 'fields_all', 'majors_depth', 'careers', 'compare', 'major_shortlist', 'reflection', 'school_search', 'school_shortlist', 'day_in_life'];
+
+    function buildDemoStudents() {
+      var students = [];
+      for (var i = 0; i < 34; i++) {
+        var first = FIRST_NAMES[i % FIRST_NAMES.length];
+        var last = LAST_NAMES[i % LAST_NAMES.length];
+        var name = first + ' ' + last;
+        var grade = pick([9, 9, 10, 10, 10, 11, 11, 11, 12, 12]);
+        var email = (first + '.' + last).toLowerCase() + '@student.lincolnhs.org';
+
+        // Depth: how far along the milestone order this student is.
+        // Weighted so most students cluster mid-journey with tails.
+        var depthRoll = rng();
+        var depth;
+        if (depthRoll < 0.12) depth = 0;                 // never started
+        else if (depthRoll < 0.28) depth = ri(1, 2);     // assessment only
+        else if (depthRoll < 0.62) depth = ri(3, 5);     // exploring
+        else if (depthRoll < 0.86) depth = ri(6, 8);     // narrowing
+        else depth = ri(9, 11);                          // nearly or fully done
+
+        var done = MILESTONE_ORDER.slice(0, depth);
+        // Occasional skip: a mid-journey student who jumped ahead to videos
+        if (depth >= 3 && depth <= 7 && rng() < 0.2 && done.indexOf('day_in_life') === -1) done.push('day_in_life');
+
+        var assessed = done.indexOf('assessment') !== -1;
+        var surfaced = assessed ? pickN(FIELDS, ri(2, 4)).map(function (f) { return f.id; }) : [];
+        var matchStrength = {};
+        surfaced.forEach(function (fid, idx) { matchStrength[fid] = ri(88 - idx * 12, 97 - idx * 10); });
+
+        var fieldsExplored = assessed ? Math.min(surfaced.length, done.indexOf('fields_all') !== -1 ? surfaced.length : ri(0, surfaced.length)) : 0;
+        var majorsPool = [];
+        surfaced.forEach(function (fid) { majorsPool = majorsPool.concat(FIELD_MAJORS[fid] || []); });
+        var majorsViewed = assessed ? pickN(majorsPool, Math.min(majorsPool.length, done.indexOf('majors_depth') !== -1 ? ri(3, 6) : ri(0, 2))) : [];
+        var majorsSaved = done.indexOf('major_shortlist') !== -1 ? pickN(majorsViewed.length ? majorsViewed : majorsPool, Math.min(3, Math.max(1, majorsViewed.length))) : (majorsViewed.length && rng() < 0.4 ? pickN(majorsViewed, 1) : []);
+        var careersViewed = done.indexOf('careers') !== -1 ? pickN(DEMO_CAREERS_WATCHED, ri(3, 8)) : (assessed ? pickN(DEMO_CAREERS_WATCHED, ri(0, 2)) : []);
+        var videosWatched = done.indexOf('day_in_life') !== -1 ? pickN(DEMO_CAREERS_WATCHED, ri(1, 3)) : [];
+        var comparisons = [];
+        if (done.indexOf('compare') !== -1 && surfaced.length >= 2) {
+          var pairs = ri(1, Math.min(3, surfaced.length - 1));
+          for (var pi = 0; pi < pairs; pi++) comparisons.push(surfaced[pi] + ' vs ' + surfaced[(pi + 1) % surfaced.length]);
+        }
+        var schoolsSaved = done.indexOf('school_shortlist') !== -1 ? pickN(DEMO_SCHOOLS, ri(3, 5)) : (done.indexOf('school_search') !== -1 ? pickN(DEMO_SCHOOLS, ri(0, 2)) : []);
+        var reflection = done.indexOf('reflection') !== -1 ? pick(DEMO_REFLECTIONS) : null;
+
+        // Last active: deeper students trend more recent; some go quiet
+        var lastActiveDays;
+        if (depth === 0) lastActiveDays = ri(20, 60);
+        else if (rng() < 0.22) lastActiveDays = ri(15, 35);
+        else lastActiveDays = ri(0, 12);
+
+        var assessmentDaysAgo = assessed ? lastActiveDays + ri(5, 50) : null;
+
+        students.push({
+          id: 'stu_' + (i + 1),
+          name: name,
+          email: email,
+          grade: grade,
+          classYear: GRADE_CLASS_YEAR[grade],
+          lastActiveDays: lastActiveDays,
+          assessmentCompleted: assessed,
+          assessmentDaysAgo: assessmentDaysAgo,
+          surfaced: surfaced,
+          matchStrength: matchStrength,
+          milestonesDone: done,
+          fieldsExplored: fieldsExplored,
+          fieldsViewed: pickN(surfaced, fieldsExplored),
+          majorsViewed: majorsViewed,
+          majorsSaved: majorsSaved,
+          careersViewed: careersViewed,
+          videosWatched: videosWatched,
+          comparisons: comparisons,
+          schoolsSaved: schoolsSaved,
+          reflection: reflection,
+          reflections: reflection ? [{ text: reflection, id: 'major:' + (majorsSaved[0] || majorsViewed[0] || 'General') }] : []
+        });
+      }
+      return students;
+    }
+
+    var mockData = { students: buildDemoStudents() };
+
+    // ---------- Shared helpers ----------
+    function escapeHtml(str) {
+      return String(str == null ? '' : str)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+    function getInitials(name) {
+      return String(name).split(' ').map(function (p) { return p.charAt(0); }).join('').slice(0, 2).toUpperCase();
+    }
+    function comparisonLabel(entry) {
+      // Entries arrive as '<fieldIdA> vs <fieldIdB>'. Map ids to
+      // titles; unknown tokens pass through untouched.
+      return String(entry).split(' vs ').map(function (t) { return fieldTitle(t.trim()); }).join(' vs ');
+    }
+
+    function fieldTitle(fid) {
+      for (var i = 0; i < FIELDS.length; i++) if (FIELDS[i].id === fid) return FIELDS[i].title;
+      return fid;
+    }
+    function fieldForMajor(major) {
+      for (var fid in FIELD_MAJORS) if (FIELD_MAJORS[fid].indexOf(major) !== -1) return fid;
+      return null;
+    }
+    function topFieldOf(s) {
+      if (!s.surfaced.length) return null;
+      var best = s.surfaced[0];
+      s.surfaced.forEach(function (fid) { if ((s.matchStrength[fid] || 0) > (s.matchStrength[best] || 0)) best = fid; });
+      return best;
+    }
+    function currentStageOf(s) {
+      // First stage containing an incomplete milestone; students with
+      // everything done sit at the final stage.
+      for (var i = 0; i < STAGES.length; i++) {
+        var ms = MILESTONES.filter(function (m) { return m.stage === STAGES[i].id; });
+        var allDone = ms.every(function (m) { return s.milestonesDone.indexOf(m.id) !== -1; });
+        if (!allDone) return STAGES[i];
+      }
+      return STAGES[STAGES.length - 1];
+    }
+    function nextMilestoneOf(s) {
+      for (var i = 0; i < MILESTONE_ORDER.length; i++) {
+        if (s.milestonesDone.indexOf(MILESTONE_ORDER[i]) === -1) {
+          var id = MILESTONE_ORDER[i];
+          for (var j = 0; j < MILESTONES.length; j++) if (MILESTONES[j].id === id) return MILESTONES[j];
+        }
+      }
+      return null;
+    }
+    function lastActiveLabel(days) {
+      if (days === 0) return 'Today';
+      if (days === 1) return 'Yesterday';
+      if (days < 7) return days + ' days ago';
+      if (days < 14) return '1 week ago';
+      if (days < 30) return Math.floor(days / 7) + ' weeks ago';
+      return Math.floor(days / 30) + ' month' + (days >= 60 ? 's' : '') + ' ago';
+    }
+    function lastActiveBadge(days) {
+      if (days <= 7) return '<span class="badge excellent">' + escapeHtml(lastActiveLabel(days)) + '</span>';
+      if (days <= 14) return '<span class="badge fair">' + escapeHtml(lastActiveLabel(days)) + '</span>';
+      return '<span class="badge needs-work">' + escapeHtml(lastActiveLabel(days)) + '</span>';
+    }
+    // ============================================================
+    // LIVE DATA LAYER
+    // Same boot pattern as the CS admin dashboard: own supabase-js
+    // client on app.clover-path.com (login session lives on this
+    // origin), gate overlay until session + org admin verified, then
+    // hydrate from get_hs_admin_sessions() and render.
+    // ============================================================
+    var supabaseClient = null;
+    var currentUser = null;
+    var currentOrg = null;
+
+    function gateShow(kind, opts) {
+      opts = opts || {};
+      var overlay = document.getElementById('gateOverlay');
+      var spinner = document.getElementById('gateSpinner');
+      var title = document.getElementById('gateTitle');
+      var bodyEl = document.getElementById('gateBody');
+      var detail = document.getElementById('gateDetail');
+      var actions = document.getElementById('gateActions');
+      var card = document.getElementById('gateCard');
+      if (!overlay) return;
+      overlay.classList.remove('hidden');
+      Array.prototype.forEach.call(card.querySelectorAll('.gate-icon'), function (n) { n.remove(); });
+      spinner.style.display = 'none';
+      actions.innerHTML = '';
+      detail.style.display = 'none';
+      if (kind === 'loading') {
+        spinner.style.display = 'block';
+        title.textContent = opts.title || 'Loading dashboard';
+        bodyEl.textContent = opts.body || 'Verifying your access.';
+      } else {
+        var ic = document.createElement('div');
+        ic.className = 'gate-icon ' + (kind === 'error' ? 'error' : 'warn');
+        ic.innerHTML = kind === 'error'
+          ? '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="13"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>'
+          : '<svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+        card.insertBefore(ic, title);
+        title.textContent = opts.title || 'Something went wrong';
+        bodyEl.textContent = opts.body || '';
+        if (opts.detail) { detail.style.display = 'block'; detail.textContent = opts.detail; }
+        (opts.actions || []).forEach(function (a) {
+          var btn = document.createElement('button');
+          btn.className = 'gate-button ' + (a.secondary ? 'secondary' : '');
+          btn.textContent = a.label;
+          btn.onclick = a.onClick;
+          actions.appendChild(btn);
+        });
+      }
+    }
+    function gateHide() {
+      var overlay = document.getElementById('gateOverlay');
+      if (overlay) overlay.classList.add('hidden');
+    }
+    function signOut() {
+      try { supabaseClient.auth.signOut(); } catch (e) {}
+      window.location.href = 'https://www.clover-path.com/login';
+    }
+
+    function fetchLiveFieldCatalog() {
+      // Rebuild FIELDS from the same hs-content Edge Functions the
+      // student modules use, so field ids match surfaced_clusters.
+      // Each function returns a slice of the catalog; merge and dedupe.
+      var merged = {};
+      var chain = Promise.resolve();
+      HS_CONTENT_URLS.forEach(function (url) {
+        chain = chain.then(function () {
+          return fetch(url, { method: 'GET', headers: { 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'apikey': SUPABASE_ANON_KEY } })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (d) {
+              var clusters = (d && (d.clusters || d.fields)) || [];
+              clusters.forEach(function (c) {
+                if (c && c.id && c.title) merged[c.id] = { id: c.id, title: c.title, majors: (c.majors || []).map(function (m) { return m.title || m; }) };
+              });
+            })
+            .catch(function () { /* tolerate a slice failing */ });
+        });
+      });
+      return chain.then(function () {
+        var ids = Object.keys(merged);
+        if (!ids.length) return false;
+        FIELDS = ids.map(function (id) { return { id: id, title: merged[id].title }; });
+        FIELD_MAJORS = {};
+        ids.forEach(function (id) { FIELD_MAJORS[id] = merged[id].majors || []; });
+        return true;
+      });
+    }
+
+    function displayNameFromEmail(email) {
+      var local = String(email || '').split('@')[0];
+      if (!local) return 'Student';
+      return local.split(/[._-]+/).filter(Boolean).map(function (p) {
+        return p.charAt(0).toUpperCase() + p.slice(1);
+      }).join(' ');
+    }
+
+    function daysAgo(iso) {
+      if (!iso) return null;
+      var d = new Date(iso);
+      if (isNaN(d.getTime())) return null;
+      return Math.max(0, Math.floor((Date.now() - d.getTime()) / 86400000));
+    }
+
+    function asArray(v) {
+      if (Array.isArray(v)) return v;
+      if (typeof v === 'string') { try { var p = JSON.parse(v); return Array.isArray(p) ? p : []; } catch (e) { return []; } }
+      return [];
+    }
+
+    function sessionRowToStudent(row, idx) {
+      // Maps a real hs_sessions row into the render model. Milestone
+      // derivation mirrors the student dashboard tests exactly. As of
+      // tracker v3 all eleven milestones are server-derivable:
+      // whoiam and school_search from flags, careers from
+      // careers_viewed, reflection from reflections, day_in_life from
+      // videos_watched. Sessions from before the v3 sync show those
+      // five as pending until the student next takes the action.
+      var surfaced = asArray(row.surfaced_clusters);
+      var clustersViewed = asArray(row.clusters_viewed);
+      var majorsViewed = asArray(row.majors_viewed);
+      var majorsSaved = asArray(row.majors_saved);
+      var comparisons = asArray(row.comparisons_made);
+      var careersViewed = asArray(row.careers_viewed);
+      var videosWatched = asArray(row.videos_watched);
+      var reflections = asArray(row.reflections);
+      var flags = (row.flags && typeof row.flags === 'object') ? row.flags : {};
+      var schoolsSavedRaw = asArray(row.schools_saved);
+      var schoolsSaved = schoolsSavedRaw.map(function (sc) {
+        if (sc && typeof sc === 'object') return { name: sc.name || String(sc), city: sc.city || '', state: sc.state || '' };
+        return { name: String(sc), city: '', state: '' };
+      });
+      var completed = !!row.completed;
+
+      var done = [];
+      if (completed) done.push('assessment');
+      if (flags.whoiam_read) done.push('whoiam');
+      var unexplored = surfaced.filter(function (fid) { return clustersViewed.indexOf(fid) === -1; });
+      if (surfaced.length > 0 && unexplored.length === 0) done.push('fields_all');
+      var depthTarget = Math.min(3, Math.max(1, surfaced.length));
+      // Approximation of fieldsWithMajorOpened until majors_viewed
+      // rows carry cluster ids server-side.
+      if (completed && majorsViewed.length >= depthTarget) done.push('majors_depth');
+      if (careersViewed.length >= 2) done.push('careers');
+      if (comparisons.length >= 1) done.push('compare');
+      if (reflections.length >= 1) done.push('reflection');
+      if (majorsSaved.length >= 2) done.push('major_shortlist');
+      if (flags.school_search) done.push('school_search');
+      if (schoolsSaved.length >= 3) done.push('school_shortlist');
+      if (videosWatched.length >= 1) done.push('day_in_life');
+
+      var matchStrength = {};
+      surfaced.forEach(function (fid, i) { matchStrength[fid] = Math.max(60, 95 - i * 8); });
+
+      var lastTouch = daysAgo(row.updated_at || row.completed_at || row.created_at);
+
+      var lastReflection = null;
+      if (reflections.length) {
+        var r = reflections[reflections.length - 1];
+        lastReflection = (r && typeof r === 'object') ? (r.text || null) : String(r);
+      }
+
+      var email = row.student_email || row.email || 'unknown';
+      return {
+        id: row.id || ('live_' + idx),
+        name: (typeof row.student_name === 'string' && row.student_name.trim()) ? row.student_name.trim() : displayNameFromEmail(email),
+        email: email,
+        grade: row.grade || null,
+        classYear: row.grade ? GRADE_CLASS_YEAR[row.grade] : null,
+        lastActiveDays: lastTouch === null ? 999 : lastTouch,
+        assessmentCompleted: completed,
+        assessmentDaysAgo: daysAgo(row.completed_at),
+        surfaced: surfaced,
+        matchStrength: matchStrength,
+        milestonesDone: done,
+        fieldsExplored: surfaced.length - unexplored.length,
+        fieldsViewed: clustersViewed,
+        majorsViewed: majorsViewed,
+        majorsSaved: majorsSaved,
+        careersViewed: careersViewed,
+        videosWatched: videosWatched,
+        comparisons: comparisons,
+        schoolsSaved: schoolsSaved,
+        reflection: lastReflection,
+        reflections: reflections
+      };
+    }
+
+    function paintProfileChrome(user, org) {
+      var name = user.full_name || user.email || 'Counselor';
+      var initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map(function (p) { return p.charAt(0); }).join('').toUpperCase();
+      var av = document.getElementById('profileAvatar');
+      var nm = document.getElementById('profileName');
+      var rl = document.getElementById('profileRole');
+      if (av) av.textContent = initials || 'CP';
+      if (nm) nm.textContent = name;
+      if (rl) rl.textContent = (org && org.name ? org.name : 'Your school');
+    }
+
+    function refreshLiveData() {
+      // Re-pull the roster without a full reload. Wired to the
+      // Refresh button, which bootLive reveals once live data loads.
+      if (!LIVE || !supabaseClient) return;
+      var btn = document.getElementById('refreshBtn');
+      if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; }
+      supabaseClient.rpc(HS_ADMIN_RPC).then(function (res) {
+        if (!res.error) {
+          mockData.students = (res.data || []).map(sessionRowToStudent);
+          document.getElementById('studentCountBadge').textContent = mockData.students.length;
+          if (state.currentView === 'dashboard') renderDashboard();
+          else if (state.currentView === 'students') { renderFilterToolbar(); renderStudents(); }
+          else if (state.currentView === 'fields') renderFields();
+          else if (state.currentView === 'majors') renderMajorsSchools();
+        }
+      }).finally(function () {
+        if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
+      });
+    }
+
+    function bootLive() {
+      gateShow('loading', { title: 'Connecting', body: 'Verifying session.' });
+      if (typeof window.supabase === 'undefined' || !window.supabase.createClient) {
+        return gateShow('error', { title: 'Could not load Supabase', body: 'The Supabase library failed to load. Check your connection and refresh.' });
+      }
+      try {
+        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+          auth: { persistSession: true, autoRefreshToken: true }
+        });
+      } catch (e) {
+        return gateShow('error', { title: 'Could not initialize Supabase', body: String(e && e.message || e) });
+      }
+
+      // Login handoff: the login page (Webflow origin) passes its
+      // session here as #cp_auth=<base64 tokens>, forwarded into this
+      // iframe's src by the wrapper. Adopt it, then scrub the URL.
+      // Fragments never reach any server.
+      var authAdopt = Promise.resolve();
+      try {
+        var m = /[#&]cp_auth=([^&]+)/.exec(window.location.hash || '');
+        if (m) {
+          var tok = JSON.parse(atob(decodeURIComponent(m[1])));
+          if (tok && tok.at && tok.rt) {
+            authAdopt = supabaseClient.auth.setSession({ access_token: tok.at, refresh_token: tok.rt })
+              .catch(function () { /* fall through to normal gate */ });
+          }
+          if (window.history && history.replaceState) {
+            history.replaceState(null, '', window.location.pathname + window.location.search);
+          }
+        }
+      } catch (e) { /* malformed fragment: ignore */ }
+
+      authAdopt.then(function () {
+        return supabaseClient.auth.getSession();
+      }).then(function (sres) {
+        if (sres.error) { gateShow('error', { title: 'Auth error', body: sres.error.message }); return null; }
+        var session = sres.data && sres.data.session;
+        if (!session) {
+          gateShow('warn', {
+            title: 'Sign in required',
+            body: 'You need to sign in to access the admin dashboard.',
+            actions: [{ label: 'Go to sign in', onClick: function () { window.location.href = 'https://www.clover-path.com/login'; } }]
+          });
+          return null;
+        }
+        return supabaseClient
+          .from('profiles')
+          .select('id, email, full_name, organization_id, is_org_admin')
+          .eq('id', session.user.id)
+          .maybeSingle();
+      }).then(function (pres) {
+        if (!pres) return null;
+        if (pres.error) { gateShow('error', { title: 'Could not load profile', body: pres.error.message }); return null; }
+        var profile = pres.data;
+        if (!profile) {
+          gateShow('error', { title: 'No profile found', body: 'Your account does not have a CloverPath profile. Contact support.', actions: [{ label: 'Sign out', onClick: signOut }] });
+          return null;
+        }
+        if (profile.is_org_admin !== true) {
+          gateShow('warn', {
+            title: 'Access denied',
+            body: 'This dashboard is available to school admins only. If you should have access, contact your counseling lead.',
+            actions: [{ label: 'Sign out', onClick: signOut }]
+          });
+          return null;
+        }
+        if (!profile.organization_id) {
+          gateShow('error', { title: 'No school linked', body: 'Your admin profile is not attached to a school. Contact CloverPath support.', actions: [{ label: 'Sign out', onClick: signOut }] });
+          return null;
+        }
+        currentUser = profile;
+        return supabaseClient.from('organizations').select('id, name').eq('id', profile.organization_id).maybeSingle();
+      }).then(function (ores) {
+        if (!ores) return null;
+        currentOrg = (ores.data) || { id: currentUser.organization_id, name: 'Your school' };
+        paintProfileChrome(currentUser, currentOrg);
+        gateShow('loading', { title: 'Loading data', body: 'Fetching ' + currentOrg.name + ' student data.' });
+        return fetchLiveFieldCatalog().then(function () {
+          return supabaseClient.rpc(HS_ADMIN_RPC);
+        });
+      }).then(function (rres) {
+        if (!rres) return;
+        if (rres.error) {
+          gateShow('error', { title: 'Could not load student data', body: rres.error.message, detail: 'RPC: ' + HS_ADMIN_RPC });
+          return;
+        }
+        var rows = rres.data || [];
+        mockData.students = rows.map(sessionRowToStudent);
+        document.getElementById('studentCountBadge').textContent = mockData.students.length;
+        var rbtn = document.getElementById('refreshBtn');
+        if (rbtn) rbtn.style.display = '';
+        gateHide();
+        // First-paint chart race: if charts initialize before the just
+        // revealed layout settles, canvases can measure a wrong size
+        // and blow out the grid. Render on the next frame, then nudge
+        // a resize so Chart.js re-measures against the final layout.
+        requestAnimationFrame(function () {
+          renderDashboard();
+          if (state.currentView === 'students') { renderFilterToolbar(); renderStudents(); }
+          setTimeout(function () {
+            for (var k in charts) { if (charts[k] && typeof charts[k].resize === 'function') charts[k].resize(); }
+          }, 250);
+        });
+      }).catch(function (e) {
+        gateShow('error', { title: 'Something went wrong', body: String(e && e.message || e) });
+      });
+    }
+  </script>
+  <script>
+    // ============================================================
+    // STATE + NAVIGATION
+    // ============================================================
+    var state = {
+      currentView: 'dashboard',
+      sort: { key: 'name', dir: 1 },
+      pagination: { page: 1, perPage: 10 },
+      filterValues: { grades: [], fields: [], stages: [], matchedFields: [] },
+      searchQuery: ''
+    };
+    var charts = {};
+
+    function showView(view) {
+      document.querySelectorAll('.view').forEach(function (v) { v.classList.remove('active'); });
+      var el = document.getElementById('view-' + view);
+      if (el) el.classList.add('active');
+      document.querySelectorAll('.nav-item').forEach(function (n) {
+        n.classList.toggle('active', n.getAttribute('data-view') === view);
+      });
+      state.currentView = view;
+      window.scrollTo(0, 0);
+      if (view === 'dashboard') renderDashboard();
+      if (view === 'students') { renderFilterToolbar(); renderStudents(); }
+      if (view === 'fields') renderFields();
+      if (view === 'majors') renderMajorsSchools();
+      var sb = document.getElementById('sidebar');
+      if (sb) sb.classList.remove('mobile-open');
+      var ov = document.getElementById('sidebarOverlay');
+      if (ov) ov.classList.remove('open');
+    }
+
+    function toggleMobileMenu() {
+      var sb = document.getElementById('sidebar');
+      var ov = document.getElementById('sidebarOverlay');
+      var open = sb.classList.toggle('mobile-open');
+      ov.classList.toggle('open', open);
+    }
+
+    // ============================================================
+    // GLOBAL SEARCH
+    // ============================================================
+    function renderSearchInto(q, box) {
+      if (!q) { box.classList.remove('open'); box.innerHTML = ''; return; }
+      var hits = mockData.students.filter(function (s) {
+        return s.name.toLowerCase().indexOf(q) !== -1 || s.email.toLowerCase().indexOf(q) !== -1;
+      }).slice(0, 6);
+      if (!hits.length) {
+        box.innerHTML = '<div class="search-result-empty">No students match "' + escapeHtml(q) + '"</div>';
+      } else {
+        box.innerHTML = hits.map(function (s) {
+          var meta = s.grade ? 'Grade ' + s.grade : escapeHtml(s.email);
+          return '<div class="search-result-item" onclick="openStudentFromSearch(\'' + s.id + '\')">' +
+            '<div class="search-result-avatar">' + escapeHtml(getInitials(s.name)) + '</div>' +
+            '<div><div>' + escapeHtml(s.name) + '</div><div class="search-result-meta">' + meta + '</div></div>' +
+          '</div>';
+        }).join('');
+      }
+      box.classList.add('open');
+    }
+    function handleGlobalSearch() {
+      renderSearchInto(document.getElementById('globalSearch').value.trim().toLowerCase(), document.getElementById('searchResults'));
+    }
+    function handleMobileSearch() {
+      renderSearchInto(document.getElementById('mobileSearch').value.trim().toLowerCase(), document.getElementById('mobileSearchResults'));
+    }
+    function toggleMobileSearch() {
+      var bar = document.getElementById('mobileSearchBar');
+      var open = bar.classList.toggle('open');
+      if (open) {
+        var input = document.getElementById('mobileSearch');
+        input.value = '';
+        document.getElementById('mobileSearchResults').classList.remove('open');
+        setTimeout(function () { input.focus(); }, 50);
+      }
+    }
+    function openStudentFromSearch(id) {
+      ['searchResults', 'mobileSearchResults'].forEach(function (bid) {
+        var b = document.getElementById(bid);
+        if (b) { b.classList.remove('open'); b.innerHTML = ''; }
+      });
+      ['globalSearch', 'mobileSearch'].forEach(function (iid) {
+        var el = document.getElementById(iid);
+        if (el) el.value = '';
+      });
+      var bar = document.getElementById('mobileSearchBar');
+      if (bar) bar.classList.remove('open');
+      openStudentDetail(id);
+    }
+    document.addEventListener('click', function (e) {
+      if (!e.target.closest('.global-search') && !e.target.closest('.mobile-search-btn')) {
+        ['searchResults', 'mobileSearchResults'].forEach(function (bid) {
+          var b = document.getElementById(bid);
+          if (b) b.classList.remove('open');
+        });
+      }
+    });
+
+    // ============================================================
+    // DASHBOARD
+    // ============================================================
+    function renderDashboard() {
+      var students = mockData.students;
+      var assessed = students.filter(function (s) { return s.assessmentCompleted; });
+      var activeWeek = students.filter(function (s) { return s.lastActiveDays <= 7; });
+      var totalMilestones = students.reduce(function (a, s) { return a + s.milestonesDone.length; }, 0);
+      var avgMilestones = assessed.length ? Math.round((totalMilestones / assessed.length) * 10) / 10 : 0;
+      var totalSchools = students.reduce(function (a, s) { return a + s.schoolsSaved.length; }, 0);
+
+      var statDefs = [
+        { label: 'Active Students', value: students.length, sub: '<strong>' + activeWeek.length + '</strong> active this week', icon: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>', color: '#008208', bg: '#eef5ee', click: "showView('students')" },
+        { label: 'Assessments Completed', value: assessed.length, sub: Math.round(assessed.length / students.length * 100) + '% of students', icon: '<polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>', color: '#0f3d1e', bg: '#e8eae6', click: "showView('students')" },
+        { label: 'Avg Milestones Reached', value: avgMilestones, sub: 'of ' + MILESTONES.length + ' per assessed student', icon: '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>', color: '#3a4a55', bg: '#eef1f4', click: null },
+        { label: 'Schools Saved', value: totalSchools, sub: 'across all shortlists', icon: '<path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/>', color: '#b7791f', bg: '#fbf3e3', click: "showView('majors')" }
+      ];
+      document.getElementById('dashboardStats').innerHTML = statDefs.map(function (d) {
+        return '<div class="stat-card' + (d.click ? ' clickable" onclick="' + d.click : '') + '">' +
+          '<div class="stat-card-head"><span class="stat-card-label">' + d.label + '</span>' +
+          '<span class="stat-card-icon" style="background:' + d.bg + ';"><svg viewBox="0 0 24 24" style="stroke:' + d.color + ';">' + d.icon + '</svg></span></div>' +
+          '<div class="stat-card-value">' + d.value + '</div>' +
+          '<div class="stat-card-sub">' + d.sub + '</div></div>';
+      }).join('');
+
+      renderDashboardCharts(students, assessed);
+      renderRecentActive(students);
+    }
+
+    function destroyChart(key) { if (charts[key]) { charts[key].destroy(); charts[key] = null; } }
+
+    function renderDashboardCharts(students, assessed) {
+      if (typeof Chart === 'undefined') return;
+
+      // Top career fields: count of students whose strongest match is each field
+      var fieldCounts = {};
+      FIELDS.forEach(function (f) { fieldCounts[f.id] = 0; });
+      assessed.forEach(function (s) { var t = topFieldOf(s); if (t) fieldCounts[t]++; });
+      var ranked = FIELDS.map(function (f) { return { id: f.id, title: f.title, count: fieldCounts[f.id] }; })
+        .sort(function (a, b) { return b.count - a.count; }).slice(0, 8);
+      charts.fieldsRanked = ranked;
+      destroyChart('fields');
+      var fc = document.getElementById('fieldsChart');
+      if (fc) charts.fields = new Chart(fc, {
+        type: 'bar',
+        data: { labels: ranked.map(function (r) { return r.title; }), datasets: [{ data: ranked.map(function (r) { return r.count; }), backgroundColor: '#008208', borderRadius: 6, maxBarThickness: 26 }] },
+        options: {
+          indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } }, scales: { x: { ticks: { precision: 0 } } },
+          onClick: function (evt, elements) {
+            if (!elements || !elements.length) return;
+            var r = charts.fieldsRanked[elements[0].index];
+            if (r && r.count > 0) filterStudentsByTopField(r.id);
+          },
+          onHover: function (evt, elements) {
+            if (evt && evt.native && evt.native.target) evt.native.target.style.cursor = (elements && elements.length) ? 'pointer' : 'default';
+          }
+        }
+      });
+
+      // Journey stage distribution
+      var stageCounts = {};
+      STAGES.forEach(function (st) { stageCounts[st.id] = 0; });
+      var notStarted = 0;
+      students.forEach(function (s) {
+        if (!s.assessmentCompleted) { notStarted++; return; }
+        stageCounts[currentStageOf(s).id]++;
+      });
+      destroyChart('stage');
+      var sc = document.getElementById('stageChart');
+      if (sc) charts.stage = new Chart(sc, {
+        type: 'doughnut',
+        data: {
+          labels: ['Not Started'].concat(STAGES.map(function (st) { return st.title; })),
+          datasets: [{ data: [notStarted].concat(STAGES.map(function (st) { return stageCounts[st.id]; })), backgroundColor: ['#d9d4c6', '#0f3d1e', '#008208', '#7bbc00', '#b7791f', '#3a4a55'], borderWidth: 0 }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, cutout: '62%', plugins: { legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 } } } } }
+      });
+
+      // Weekly active students: synthesized 8-week ramp from lastActiveDays
+      var weeks = [];
+      for (var w = 7; w >= 0; w--) {
+        var lo = w * 7, hi = lo + 7;
+        var label = w === 0 ? 'This week' : w + 'w ago';
+        var count = students.filter(function (s) { return s.lastActiveDays < hi && (s.lastActiveDays >= lo || w === 7); }).length;
+        // Earlier weeks include everyone active since then for a plausible ramp
+        if (w > 0) count = students.filter(function (s) { return s.lastActiveDays <= hi; }).length - Math.floor(w * 1.4);
+        weeks.push({ label: label, count: Math.max(0, count) });
+      }
+      destroyChart('weekly');
+      var wc = document.getElementById('weeklyChart');
+      if (wc) charts.weekly = new Chart(wc, {
+        type: 'line',
+        data: { labels: weeks.map(function (x) { return x.label; }), datasets: [{ data: weeks.map(function (x) { return x.count; }), borderColor: '#008208', backgroundColor: 'rgba(0,130,8,0.1)', fill: true, tension: 0.3, pointBackgroundColor: '#008208', pointRadius: 4 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+      });
+    }
+
+    function renderRecentActive(students) {
+      var recent = students.slice()
+        .sort(function (a, b) { return a.lastActiveDays - b.lastActiveDays; })
+        .slice(0, 5);
+      var el = document.getElementById('recentActiveList');
+      if (!recent.length) { el.innerHTML = '<div class="attn-empty">No student activity yet.</div>'; return; }
+      el.innerHTML = recent.map(function (x) {
+        var meta = (x.grade ? 'Grade ' + x.grade : 'Grade not set') + ' · ' + (x.milestonesDone.length + ' of ' + MILESTONES.length + ' milestones');
+        return '<div class="attn-row" onclick="openStudentDetail(\'' + x.id + '\')">' +
+          '<div class="student-cell"><div class="student-cell-avatar">' + escapeHtml(getInitials(x.name)) + '</div>' +
+          '<div><div class="student-cell-name">' + escapeHtml(x.name) + '</div><div class="student-cell-email">' + escapeHtml(meta) + '</div></div></div>' +
+          '<span class="attn-reason">' + lastActiveBadge(x.lastActiveDays) + '</span></div>';
+      }).join('');
+    }
+
+    // ============================================================
+    // STUDENTS TABLE + FILTERS
+    // ============================================================
+    function getFilteredStudents() {
+      var f = state.filterValues;
+      return mockData.students.filter(function (s) {
+        if (f.grades.length && f.grades.indexOf(s.grade) === -1) return false;
+        if (f.fields.length) {
+          var t = topFieldOf(s);
+          if (!t || f.fields.indexOf(t) === -1) return false;
+        }
+        if (f.matchedFields.length) {
+          var hit = f.matchedFields.some(function (fid) { return s.surfaced.indexOf(fid) !== -1; });
+          if (!hit) return false;
+        }
+        if (f.stages.length) {
+          if (!s.assessmentCompleted) { if (f.stages.indexOf('none') === -1) return false; }
+          else if (f.stages.indexOf(currentStageOf(s).id) === -1) return false;
+        }
+        return true;
+      });
+    }
+
+    function activeFilterCount() {
+      var f = state.filterValues;
+      return f.grades.length + f.fields.length + f.stages.length + f.matchedFields.length;
+    }
+
+    function clearAllFilters() {
+      state.filterValues = { grades: [], fields: [], stages: [], matchedFields: [] };
+      state.pagination.page = 1;
+    }
+
+    function renderFilterToolbar() {
+      var count = activeFilterCount();
+      var filtered = getFilteredStudents();
+      var chips = [];
+      state.filterValues.grades.forEach(function (g) {
+        chips.push('<span class="filter-chip">Grade ' + g + '<button onclick="removeFilter(\'grades\',' + g + ')" aria-label="Remove">&times;</button></span>');
+      });
+      state.filterValues.fields.forEach(function (fid) {
+        chips.push('<span class="filter-chip">Top: ' + escapeHtml(fieldTitle(fid)) + '<button onclick="removeFilter(\'fields\',\'' + fid + '\')" aria-label="Remove">&times;</button></span>');
+      });
+      state.filterValues.matchedFields.forEach(function (fid) {
+        chips.push('<span class="filter-chip">Matched: ' + escapeHtml(fieldTitle(fid)) + '<button onclick="removeFilter(\'matchedFields\',\'' + fid + '\')" aria-label="Remove">&times;</button></span>');
+      });
+      state.filterValues.stages.forEach(function (sid) {
+        var label = sid === 'none' ? 'Not Started' : STAGES.filter(function (st) { return st.id === sid; })[0].title;
+        chips.push('<span class="filter-chip">' + escapeHtml(label) + '<button onclick="removeFilter(\'stages\',\'' + sid + '\')" aria-label="Remove">&times;</button></span>');
+      });
+      document.getElementById('filterToolbarRow').innerHTML =
+        '<button class="filter-btn-main" onclick="openFilterDrawer()"><svg viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>Filters' + (count ? '<span class="filter-btn-count">' + count + '</span>' : '') + '</button>' +
+        chips.join('') +
+        '<span class="filter-count-text"><strong>' + filtered.length + '</strong> student' + (filtered.length === 1 ? '' : 's') + '</span>' +
+        (count ? '<button class="filter-clear-link" onclick="clearAllFilters(); renderFilterToolbar(); renderStudents();">Clear all</button>' : '');
+    }
+
+    function removeFilter(key, val) {
+      var arr = state.filterValues[key];
+      var idx = arr.indexOf(val);
+      if (idx !== -1) arr.splice(idx, 1);
+      state.pagination.page = 1;
+      renderFilterToolbar(); renderStudents(); renderFilterDrawer();
+    }
+
+    function openFilterDrawer() {
+      renderFilterDrawer();
+      document.getElementById('filterDrawer').classList.add('open');
+      document.getElementById('drawerBackdrop').classList.add('open');
+    }
+    function closeFilterDrawer() {
+      document.getElementById('filterDrawer').classList.remove('open');
+      document.getElementById('drawerBackdrop').classList.remove('open');
+    }
+    function renderFilterDrawer() {
+      var f = state.filterValues;
+      var html = '';
+      var hasGrades = mockData.students.some(function (s) { return !!s.grade; });
+      if (hasGrades) {
+        html += '<div class="filter-group"><div class="filter-group-label">Grade</div>';
+        [9, 10, 11, 12].forEach(function (g) {
+          html += '<label class="filter-option"><input type="checkbox" ' + (f.grades.indexOf(g) !== -1 ? 'checked' : '') + ' onchange="toggleFilter(\'grades\',' + g + ')">Grade ' + g + '</label>';
+        });
+        html += '</div>';
+      }
+      html += '<div class="filter-group"><div class="filter-group-label">Top Field</div>';
+      FIELDS.forEach(function (fd) {
+        html += '<label class="filter-option"><input type="checkbox" ' + (f.fields.indexOf(fd.id) !== -1 ? 'checked' : '') + ' onchange="toggleFilter(\'fields\',\'' + fd.id + '\')">' + escapeHtml(fd.title) + '</label>';
+      });
+      html += '</div>';
+      html += '<div class="filter-group"><div class="filter-group-label">Journey Stage</div>';
+      html += '<label class="filter-option"><input type="checkbox" ' + (f.stages.indexOf('none') !== -1 ? 'checked' : '') + ' onchange="toggleFilter(\'stages\',\'none\')">Not Started</label>';
+      STAGES.forEach(function (st) {
+        html += '<label class="filter-option"><input type="checkbox" ' + (f.stages.indexOf(st.id) !== -1 ? 'checked' : '') + ' onchange="toggleFilter(\'stages\',\'' + st.id + '\')">' + escapeHtml(st.title) + '</label>';
+      });
+      html += '</div>';
+      document.getElementById('filterDrawerBody').innerHTML = html;
+    }
+    function toggleFilter(key, val) {
+      var arr = state.filterValues[key];
+      var idx = arr.indexOf(val);
+      if (idx === -1) arr.push(val); else arr.splice(idx, 1);
+      state.pagination.page = 1;
+      renderFilterToolbar(); renderStudents();
+    }
+
+    function sortValue(s, key) {
+      if (key === 'name') return s.name.toLowerCase();
+      if (key === 'grade') return s.grade;
+      if (key === 'topField') { var t = topFieldOf(s); return t ? fieldTitle(t).toLowerCase() : 'zzz'; }
+      if (key === 'milestones') return s.milestonesDone.length;
+      if (key === 'lastActive') return -s.lastActiveDays;
+      return 0;
+    }
+    function sortTable(key) {
+      if (state.sort.key === key) state.sort.dir *= -1;
+      else { state.sort.key = key; state.sort.dir = 1; }
+      renderStudents();
+    }
+
+    function renderStudents() {
+      var students = getFilteredStudents().slice();
+      students.sort(function (a, b) {
+        var va = sortValue(a, state.sort.key), vb = sortValue(b, state.sort.key);
+        if (va < vb) return -1 * state.sort.dir;
+        if (va > vb) return 1 * state.sort.dir;
+        return 0;
+      });
+
+      var total = students.length;
+      var perPage = state.pagination.perPage;
+      var totalPages = Math.max(1, Math.ceil(total / perPage));
+      if (state.pagination.page > totalPages) state.pagination.page = totalPages;
+      var page = state.pagination.page;
+      var start = (page - 1) * perPage;
+      var pageStudents = students.slice(start, start + perPage);
+
+      document.getElementById('studentsTableBody').innerHTML = pageStudents.map(function (s) {
+        var t = topFieldOf(s);
+        var pct = Math.round(s.milestonesDone.length / MILESTONES.length * 100);
+        return '<tr class="clickable-row" onclick="openStudentDetail(\'' + s.id + '\')">' +
+          '<td><div class="student-cell"><div class="student-cell-avatar">' + escapeHtml(getInitials(s.name)) + '</div>' +
+          '<div><div class="student-cell-name">' + escapeHtml(s.name) + '</div><div class="student-cell-email">' + escapeHtml(s.email) + '</div></div></div></td>' +
+          '<td>' + (s.grade ? 'Grade ' + s.grade : '<span class="badge neutral">Not set</span>') + '</td>' +
+          '<td>' + (t ? '<span class="field-tag">' + escapeHtml(fieldTitle(t)) + '</span>' : '<span class="badge neutral">No assessment</span>') + '</td>' +
+          '<td><div class="journey-cell"><div class="journey-track"><div class="journey-fill" style="width:' + pct + '%;"></div></div><span class="journey-count">' + s.milestonesDone.length + '/' + MILESTONES.length + '</span></div></td>' +
+          '<td>' + lastActiveBadge(s.lastActiveDays) + '</td></tr>';
+      }).join('') || '<tr><td colspan="5" style="text-align:center; color:#8a948e; padding:32px;">No students match the current filters.</td></tr>';
+
+      document.getElementById('paginationInfo').textContent = total ? ('Showing ' + (start + 1) + '-' + Math.min(start + perPage, total) + ' of ' + total) : 'No students';
+      var pagHtml = '<button class="pagination-btn" onclick="goToPage(' + (page - 1) + ')"' + (page === 1 ? ' disabled' : '') + '>&lsaquo;</button>';
+      for (var i = 1; i <= totalPages; i++) {
+        pagHtml += '<button class="pagination-btn ' + (i === page ? 'active' : '') + '" onclick="goToPage(' + i + ')">' + i + '</button>';
+      }
+      pagHtml += '<button class="pagination-btn" onclick="goToPage(' + (page + 1) + ')"' + (page === totalPages ? ' disabled' : '') + '>&rsaquo;</button>';
+      document.getElementById('paginationControls').innerHTML = pagHtml;
+
+      document.getElementById('studentCountBadge').textContent = mockData.students.length;
+    }
+    function goToPage(p) {
+      var totalPages = Math.max(1, Math.ceil(getFilteredStudents().length / state.pagination.perPage));
+      if (p < 1 || p > totalPages) return;
+      state.pagination.page = p;
+      renderStudents();
+    }
+
+    // ============================================================
+    // STUDENT DETAIL
+    // ============================================================
+    var currentDetailStudentId = null;
+
+    function openStudentDetail(id) {
+      var s = null;
+      mockData.students.forEach(function (x) { if (x.id === id) s = x; });
+      if (!s) return;
+      currentDetailStudentId = id;
+      activityDetailKey = null;
+      showView('student-detail');
+      renderStudentDetail(s);
+    }
+
+    function renderStudentDetail(s) {
+      document.getElementById('studentDetailName').textContent = s.name;
+      var t = topFieldOf(s);
+      document.getElementById('studentDetailHeader').innerHTML =
+        '<div class="student-detail-avatar">' + escapeHtml(getInitials(s.name)) + '</div>' +
+        '<div class="student-detail-info">' +
+          '<div class="student-detail-name">' + escapeHtml(s.name) + '</div>' +
+          '<div class="student-detail-meta">' +
+            '<span><svg viewBox="0 0 24 24"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>' + (s.grade ? 'Grade ' + s.grade + ' · Class of ' + s.classYear : 'Grade not set') + '</span>' +
+            (t ? '<span><svg viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>Top field: <strong>&nbsp;' + escapeHtml(fieldTitle(t)) + '</strong></span>' : '') +
+            '<span><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Last active ' + escapeHtml(lastActiveLabel(s.lastActiveDays).toLowerCase()) + '</span>' +
+          '</div>' +
+        '</div>';
+
+      renderAssessmentSnapshot(s);
+      renderJourneyProgress(s);
+      renderAdvisorGuidance(s);
+      renderExplorationActivity(s);
+      renderStudentReflection(s);
+      renderSavedItems(s);
+    }
+
+    function renderAssessmentSnapshot(s) {
+      var sub = document.getElementById('assessmentSub');
+      var body = document.getElementById('assessmentSnapshot');
+      if (!s.assessmentCompleted) {
+        sub.textContent = '';
+        body.innerHTML = '<div class="assessment-empty">This student has not taken the aptitude assessment yet. Matched fields will appear here once they complete it.</div>';
+        return;
+      }
+      sub.textContent = 'Completed about ' + Math.max(1, Math.round(s.assessmentDaysAgo / 7)) + ' week' + (s.assessmentDaysAgo >= 11 ? 's' : '') + ' ago · ' + s.surfaced.length + ' matched fields';
+      var ranked = s.surfaced.slice().sort(function (a, b) { return (s.matchStrength[b] || 0) - (s.matchStrength[a] || 0); });
+      body.innerHTML = ranked.map(function (fid) {
+        var v = s.matchStrength[fid] || 0;
+        return '<div class="match-row"><div class="match-label">' + escapeHtml(fieldTitle(fid)) + '</div>' +
+          '<div class="match-track"><div class="match-fill" style="width:' + v + '%;"></div></div>' +
+          '<div class="match-value">' + v + '</div></div>';
+      }).join('');
+    }
+
+    function renderJourneyProgress(s) {
+      document.getElementById('journeySub').textContent = s.milestonesDone.length + ' of ' + MILESTONES.length + ' milestones';
+      var html = '';
+      STAGES.forEach(function (st) {
+        var ms = MILESTONES.filter(function (m) { return m.stage === st.id; });
+        var doneCount = ms.filter(function (m) { return s.milestonesDone.indexOf(m.id) !== -1; }).length;
+        var allDone = doneCount === ms.length;
+        html += '<div class="stage-block">';
+        html += '<div class="stage-head' + (allDone ? ' done' : '') + '"><span class="stage-num">' + st.num + '</span><span class="stage-title">' + escapeHtml(st.title) + '</span><span class="stage-progress">' + doneCount + ' of ' + ms.length + '</span></div>';
+        ms.forEach(function (m) {
+          var done = s.milestonesDone.indexOf(m.id) !== -1;
+          html += '<div class="milestone-row' + (done ? '' : ' pending') + '">' +
+            '<span class="milestone-check ' + (done ? 'done' : 'pending') + '">' + (done ? '<svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>' : '') + '</span>' +
+            '<span class="milestone-title">' + escapeHtml(m.title) + '</span></div>';
+        });
+        html += '</div>';
+      });
+      document.getElementById('journeyProgress').innerHTML = html;
+    }
+
+    function renderAdvisorGuidance(s) {
+      var el = document.getElementById('advisorGuidance');
+      var next = nextMilestoneOf(s);
+      var title, text;
+      if (!s.assessmentCompleted) {
+        title = 'Start with the assessment';
+        text = 'This student has not begun yet. A quick nudge to take the aptitude assessment unlocks everything else on the platform.';
+      } else if (next) {
+        var stage = STAGES.filter(function (st) { return st.id === next.stage; })[0];
+        title = 'Next step: ' + next.title;
+        text = 'This student is in the ' + stage.title + ' stage.';
+      } else {
+        title = 'Journey complete';
+        text = 'This student has reached every milestone. A good next conversation is what they learned and how it shapes their course selections.';
+      }
+      el.innerHTML = '<div class="guidance-box"><div class="guidance-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg></div>' +
+        '<div><div class="guidance-title">' + escapeHtml(title) + '</div><div class="guidance-text">' + escapeHtml(text) + '</div></div></div>';
+    }
+
+    var activityDetailKey = null;
+
+    function activityItemsFor(s, key) {
+      if (key === 'fields') return (s.fieldsViewed || []).map(function (fid) { return fieldTitle(fid); });
+      if (key === 'majors') return s.majorsViewed || [];
+      if (key === 'careers') return s.careersViewed || [];
+      if (key === 'videos') return (s.videosWatched || []).map(function (v) { return 'Day in the life: ' + v; });
+      if (key === 'comparisons') return (s.comparisons || []).map(comparisonLabel);
+      if (key === 'reflections') return (s.reflections || []).map(function (r) {
+        var ctx = r && r.id ? String(r.id).replace(/^major:/, '') : '';
+        return (ctx ? ctx + ': ' : '') + '"' + (r && r.text ? r.text : String(r)) + '"';
+      });
+      return [];
+    }
+
+    function renderExplorationActivity(s) {
+      var tiles = [
+        { key: 'fields', value: (s.fieldsViewed || []).length || s.fieldsExplored, label: 'Fields Explored' },
+        { key: 'majors', value: s.majorsViewed.length, label: 'Majors Viewed' },
+        { key: 'careers', value: (s.careersViewed || []).length, label: 'Careers Met' },
+        { key: 'videos', value: s.videosWatched.length, label: 'Videos Watched' },
+        { key: 'comparisons', value: (s.comparisons || []).length, label: 'Comparisons Made' },
+        { key: 'reflections', value: (s.reflections || []).length, label: 'Reflections Written' }
+      ];
+      document.getElementById('explorationActivity').innerHTML = tiles.map(function (tl) {
+        var clickable = tl.value > 0;
+        var isOpen = activityDetailKey === tl.key;
+        return '<div class="activity-tile' + (clickable ? ' clickable' : '') + (isOpen ? ' open' : '') + '"' +
+          (clickable ? ' onclick="toggleActivityDetail(\'' + tl.key + '\')"' : '') + '>' +
+          '<div class="activity-tile-value">' + tl.value + '</div>' +
+          '<div class="activity-tile-label">' + tl.label + (clickable ? '<svg class="activity-tile-chev" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>' : '') + '</div></div>';
+      }).join('');
+      renderActivityDetail(s);
+    }
+
+    function renderActivityDetail(s) {
+      var panel = document.getElementById('activityDetail');
+      if (!panel) return;
+      if (!activityDetailKey) { panel.innerHTML = ''; panel.style.display = 'none'; return; }
+      var items = activityItemsFor(s, activityDetailKey);
+      if (!items.length) { panel.innerHTML = ''; panel.style.display = 'none'; return; }
+      var labels = { fields: 'Fields this student opened', majors: 'Majors this student viewed', careers: 'Career spotlights opened', videos: 'Videos watched', comparisons: 'Field comparisons run', reflections: 'Reflections written' };
+      var body;
+      if (activityDetailKey === 'reflections') {
+        body = items.map(function (x) { return '<div class="activity-detail-quote">' + escapeHtml(x) + '</div>'; }).join('');
+      } else {
+        body = '<div class="chip-wrap">' + items.map(function (x) { return '<span class="chip">' + escapeHtml(x) + '</span>'; }).join('') + '</div>';
+      }
+      panel.innerHTML = '<div class="activity-detail-title">' + escapeHtml(labels[activityDetailKey] || '') + '</div>' + body;
+      panel.style.display = 'block';
+    }
+
+    function toggleActivityDetail(key) {
+      activityDetailKey = activityDetailKey === key ? null : key;
+      var s = null;
+      mockData.students.forEach(function (x) { if (x.id === currentDetailStudentId) s = x; });
+      if (s) renderExplorationActivity(s);
+    }
+
+    function renderStudentReflection(s) {
+      var el = document.getElementById('studentReflection');
+      if (!s.reflection) {
+        el.innerHTML = '<div class="saved-empty">No reflection written yet. Reflections unlock in the Narrow It Down stage.</div>';
+        return;
+      }
+      el.innerHTML = '<div class="reflection-quote">' + escapeHtml(s.reflection) + '</div>' +
+        '<div class="reflection-meta">Written in the student\'s own words during the Narrow It Down stage.</div>';
+    }
+
+    function renderSavedItems(s) {
+      var mEl = document.getElementById('savedMajors');
+      if (!s.majorsSaved.length) mEl.innerHTML = '<div class="saved-empty">No majors saved yet.</div>';
+      else mEl.innerHTML = '<div class="chip-wrap">' + s.majorsSaved.map(function (m) { return '<span class="chip">' + escapeHtml(m) + '</span>'; }).join('') + '</div>';
+
+      var sEl = document.getElementById('savedSchools');
+      if (!s.schoolsSaved.length) sEl.innerHTML = '<div class="saved-empty">No schools saved yet.</div>';
+      else sEl.innerHTML = s.schoolsSaved.map(function (sc) {
+        return '<div class="school-row"><div><div class="school-name">' + escapeHtml(sc.name) + '</div><div class="school-loc">' + escapeHtml(sc.city + ', ' + sc.state) + '</div></div></div>';
+      }).join('');
+    }
+
+    // ============================================================
+    // CAREER FIELDS
+    // ============================================================
+    function renderFields() {
+      var students = mockData.students;
+      var cards = FIELDS.map(function (f) {
+        var topMatch = 0, anyMatch = 0, saves = 0;
+        students.forEach(function (s) {
+          if (topFieldOf(s) === f.id) topMatch++;
+          if (s.surfaced.indexOf(f.id) !== -1) anyMatch++;
+          s.majorsSaved.forEach(function (m) { if (fieldForMajor(m) === f.id) saves++; });
+        });
+        return { f: f, topMatch: topMatch, anyMatch: anyMatch, saves: saves };
+      }).sort(function (a, b) { return b.topMatch - a.topMatch || b.anyMatch - a.anyMatch; });
+
+      document.getElementById('fieldGrid').innerHTML = cards.map(function (c) {
+        return '<div class="field-card">' +
+          '<div class="field-card-name">' + escapeHtml(c.f.title) + '</div>' +
+          '<div class="field-card-stats">' +
+            '<div class="field-card-stat"><div class="field-card-stat-value">' + c.topMatch + '</div><div class="field-card-stat-label">Top Match</div></div>' +
+            '<div class="field-card-stat"><div class="field-card-stat-value">' + c.anyMatch + '</div><div class="field-card-stat-label">Matched</div></div>' +
+            '<div class="field-card-stat"><div class="field-card-stat-value">' + c.saves + '</div><div class="field-card-stat-label">Major Saves</div></div>' +
+          '</div>' +
+          '<div class="field-card-foot"><span>' + (c.anyMatch ? Math.round(c.anyMatch / mockData.students.length * 100) + '% of students matched' : 'No matches yet') + '</span>' +
+          '<button class="field-card-btn" onclick="filterStudentsByField(\'' + c.f.id + '\')"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>View Students</button></div>' +
+        '</div>';
+      }).join('');
+    }
+
+    function filterStudentsByField(fid) {
+      // Drill from field cards and majors: students who MATCHED the
+      // field anywhere in their assessment, mirroring the card counts.
+      clearAllFilters();
+      state.filterValues.matchedFields = [fid];
+      state.pagination.page = 1;
+      showView('students');
+    }
+
+    function filterStudentsByTopField(fid) {
+      // Drill from the Top Career Fields chart: students whose
+      // STRONGEST match is the field, mirroring the bar counts.
+      clearAllFilters();
+      state.filterValues.fields = [fid];
+      state.pagination.page = 1;
+      showView('students');
+    }
+
+    // ============================================================
+    // MAJORS AND SCHOOLS
+    // ============================================================
+    function renderMajorsSchools() {
+      var students = mockData.students;
+      var majorCounts = {};
+      students.forEach(function (s) {
+        s.majorsSaved.forEach(function (m) { majorCounts[m] = (majorCounts[m] || 0) + 1; });
+      });
+      var majorRows = Object.keys(majorCounts).map(function (m) {
+        return { major: m, count: majorCounts[m], fid: fieldForMajor(m) };
+      }).sort(function (a, b) { return b.count - a.count; }).slice(0, 12);
+
+      document.getElementById('majorsTableBody').innerHTML = majorRows.map(function (r) {
+        return '<tr><td style="font-weight:600;">' + escapeHtml(r.major) + '</td>' +
+          '<td>' + (r.fid ? '<span class="field-tag">' + escapeHtml(fieldTitle(r.fid)) + '</span>' : '') + '</td>' +
+          '<td><span class="journey-count">' + r.count + '</span></td>' +
+          '<td>' + (r.fid ? '<button class="field-card-btn" onclick="filterStudentsByField(\'' + r.fid + '\')">View Students</button>' : '') + '</td></tr>';
+      }).join('') || '<tr><td colspan="4" style="text-align:center; color:#8a948e; padding:28px;">No majors saved yet.</td></tr>';
+
+      var schoolCounts = {};
+      students.forEach(function (s) {
+        s.schoolsSaved.forEach(function (sc) {
+          var key = sc.name;
+          if (!schoolCounts[key]) schoolCounts[key] = { school: sc, count: 0 };
+          schoolCounts[key].count++;
+        });
+      });
+      var schoolRows = Object.keys(schoolCounts).map(function (k) { return schoolCounts[k]; })
+        .sort(function (a, b) { return b.count - a.count; }).slice(0, 12);
+
+      document.getElementById('schoolsTableBody').innerHTML = schoolRows.map(function (r) {
+        return '<tr><td style="font-weight:600;">' + escapeHtml(r.school.name) + '</td>' +
+          '<td>' + escapeHtml(r.school.city + ', ' + r.school.state) + '</td>' +
+          '<td><span class="journey-count">' + r.count + '</span></td></tr>';
+      }).join('') || '<tr><td colspan="3" style="text-align:center; color:#8a948e; padding:28px;">No schools saved yet.</td></tr>';
+    }
+
+    // ============================================================
+    // REPORTS
+    // External reports redact all student names and are safe to send
+    // to school administration. Internal reports include names and
+    // stay within the counseling team.
+    // ============================================================
+    function reportBaseCss() {
+      return '<style>body{font-family:Inter,-apple-system,sans-serif;color:#16211a;padding:36px;max-width:820px;margin:0 auto;}h1{font-family:Oswald,sans-serif;font-size:24px;margin-bottom:4px;}h2{font-size:16px;margin:26px 0 10px;border-bottom:1px solid #e4e0d6;padding-bottom:6px;}p{font-size:13.5px;line-height:1.6;color:#3a453c;}table{width:100%;border-collapse:collapse;margin-top:8px;}th{font-size:11px;text-transform:uppercase;letter-spacing:0.5px;text-align:left;color:#5f6b62;padding:7px 10px;border-bottom:1px solid #c4c0b2;}td{font-size:13px;padding:7px 10px;border-bottom:1px solid #eee9dd;}.meta{font-size:12px;color:#8a948e;margin-bottom:20px;}.print-btn{position:fixed;top:14px;right:14px;padding:10px 16px;background:#008208;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-family:inherit;}@media print{.no-print{display:none;}}</style>';
+    }
+
+    function openReportWindow(title, bodyHtml) {
+      var w = window.open('', '_blank');
+      if (!w) { alert('Please allow pop-ups to generate reports.'); return; }
+      w.document.write('<!DOCTYPE html><html><head><title>' + title + ' - CloverPath</title><meta charset="utf-8"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Oswald:wght@600&display=swap" rel="stylesheet">' + reportBaseCss() + '</head><body><button class="print-btn no-print" onclick="window.print()">Save as PDF / Print</button>' + bodyHtml + '</body></html>');
+      w.document.close();
+    }
+
+    function reportHeader(title, tag) {
+      var today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+      return '<h1>' + title + '</h1><div class="meta">Lincoln High School · Generated ' + today + ' · ' + tag + '</div>';
+    }
+
+    function generateReport(type) {
+      var students = mockData.students;
+      var assessed = students.filter(function (s) { return s.assessmentCompleted; });
+
+      if (type === 'program') {
+        var totalMilestones = students.reduce(function (a, s) { return a + s.milestonesDone.length; }, 0);
+        var avgMs = assessed.length ? Math.round(totalMilestones / assessed.length * 10) / 10 : 0;
+        var totalSchools = students.reduce(function (a, s) { return a + s.schoolsSaved.length; }, 0);
+        var totalMajors = students.reduce(function (a, s) { return a + s.majorsSaved.length; }, 0);
+        var reflections = students.filter(function (s) { return s.reflection; }).length;
+        var stageCounts = {};
+        STAGES.forEach(function (st) { stageCounts[st.id] = 0; });
+        var notStarted = 0;
+        students.forEach(function (s) { if (!s.assessmentCompleted) notStarted++; else stageCounts[currentStageOf(s).id]++; });
+        var stageRows = '<tr><td>Not Started</td><td>' + notStarted + '</td></tr>' + STAGES.map(function (st) {
+          return '<tr><td>' + st.title + '</td><td>' + stageCounts[st.id] + '</td></tr>';
+        }).join('');
+        openReportWindow('Program Summary', reportHeader('Career Exploration Program Summary', 'External · No student names') +
+          '<p>This report summarizes participation in the CloverPath career exploration program. All figures are cohort-level. No individual student information is included.</p>' +
+          '<h2>Participation</h2><table><tr><th>Metric</th><th>Value</th></tr>' +
+          '<tr><td>Enrolled students</td><td>' + students.length + '</td></tr>' +
+          '<tr><td>Aptitude assessments completed</td><td>' + assessed.length + ' (' + Math.round(assessed.length / students.length * 100) + '%)</td></tr>' +
+          '<tr><td>Average milestones reached (assessed students)</td><td>' + avgMs + ' of ' + MILESTONES.length + '</td></tr>' +
+          '<tr><td>Majors saved to shortlists</td><td>' + totalMajors + '</td></tr>' +
+          '<tr><td>Schools saved to shortlists</td><td>' + totalSchools + '</td></tr>' +
+          '<tr><td>Written reflections completed</td><td>' + reflections + '</td></tr></table>' +
+          '<h2>Journey Stage Distribution</h2><table><tr><th>Stage</th><th>Students</th></tr>' + stageRows + '</table>');
+      }
+
+      if (type === 'fields') {
+        var rows = FIELDS.map(function (f) {
+          var topMatch = 0, anyMatch = 0;
+          students.forEach(function (s) {
+            if (topFieldOf(s) === f.id) topMatch++;
+            if (s.surfaced.indexOf(f.id) !== -1) anyMatch++;
+          });
+          return { f: f, topMatch: topMatch, anyMatch: anyMatch };
+        }).sort(function (a, b) { return b.topMatch - a.topMatch; });
+        openReportWindow('Field Interest Report', reportHeader('Career Field Interest Report', 'External · No student names') +
+          '<p>Career fields ranked by how many students match them in the aptitude assessment. Top Match counts students whose strongest result is this field; Any Match counts every student who matched it at all.</p>' +
+          '<table><tr><th>Career Field</th><th>Top Match</th><th>Any Match</th></tr>' +
+          rows.map(function (r) { return '<tr><td>' + r.f.title + '</td><td>' + r.topMatch + '</td><td>' + r.anyMatch + '</td></tr>'; }).join('') + '</table>');
+      }
+
+      if (type === 'roster') {
+        var sorted = students.slice().sort(function (a, b) { return a.name.localeCompare(b.name); });
+        openReportWindow('Student Roster', reportHeader('Student Roster', 'Internal · Includes student names') +
+          '<p>Full roster with journey progress. This report includes student names and is intended for the counseling team only.</p>' +
+          '<table><tr><th>Student</th><th>Grade</th><th>Top Field</th><th>Milestones</th><th>Last Active</th></tr>' +
+          sorted.map(function (s) {
+            var t = topFieldOf(s);
+            return '<tr><td>' + escapeHtml(s.name) + '</td><td>' + s.grade + '</td><td>' + (t ? escapeHtml(fieldTitle(t)) : 'No assessment') + '</td><td>' + s.milestonesDone.length + ' of ' + MILESTONES.length + '</td><td>' + escapeHtml(lastActiveLabel(s.lastActiveDays)) + '</td></tr>';
+          }).join('') + '</table>');
+      }
+
+    }
+
+    // ============================================================
+    // INIT
+    // ============================================================
+    document.addEventListener('DOMContentLoaded', function () {
+      if (LIVE) { bootLive(); return; }
+      gateHide();
+      document.getElementById('studentCountBadge').textContent = mockData.students.length;
+      renderDashboard();
+    });
+  </script>
+</body>
+</html>
